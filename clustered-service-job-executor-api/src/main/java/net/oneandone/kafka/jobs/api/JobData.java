@@ -1,5 +1,7 @@
 package net.oneandone.kafka.jobs.api;
 
+import java.time.Instant;
+
 /**
  * @author aschoerk
  */
@@ -39,4 +41,23 @@ public interface JobData {
      * @return index of the current step
      */
     int step();
+
+    /**
+     * The current class of the context
+     * @return The current class of the context
+     */
+    Class contextClass();
+
+    /**
+     * Number of sequential attempts to execute the current step
+     *
+     * @return vNumber of sequential attempts to execute the current step
+     */
+    Integer retries();
+
+    /**
+     * The next time the step should get started, if != null, don't start before that time.
+     * @return The next time the step should get started, if != null, don't start before that time.
+     */
+    Instant date();
 }

@@ -11,7 +11,7 @@ public interface Executor {
      * @param job the job containing steps which can be executed.
      * @return job and steps adapted to the executor jar.
      */
-    <T> Job<T> register(Job<T> job, Class<T> clazz);
+    <T> void register(Job<T> job, Class<T> clazz);
 
     /**
      * creates a job instance to be executed

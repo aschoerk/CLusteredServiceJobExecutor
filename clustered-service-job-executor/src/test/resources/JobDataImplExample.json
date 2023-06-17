@@ -1,0 +1,6 @@
+{"id": "idxx", "jobSignature": "signatur", "state": "RUNNING", "step": 0, "errors": [
+  { "creator":  "xxxx", "id":  "xx001", "instant":  1686817582001, "remark":  "was an error"},
+  { "creator":  "xxxx", "id":  "xx001", "instant":  1686817582002, "remark":  "was an error"}
+], "comments": [
+  { "creator":  "xxxx",  "instant":  1686817582002, "remark":  "was a comment"}
+]}

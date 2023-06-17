@@ -1,4 +1,4 @@
-package net.oneandone.kafka.jobs.executor;
+package net.oneandone.kafka.jobs.beans;
 
 /**
  * @author aschoerk

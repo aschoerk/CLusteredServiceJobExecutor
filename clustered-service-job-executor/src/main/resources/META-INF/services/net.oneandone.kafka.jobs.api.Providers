@@ -1,1 +1,1 @@
-net.oneandone.kafka.jobs.executor.ProvidersImpl
+net.oneandone.kafka.jobs.init.ProvidersImpl

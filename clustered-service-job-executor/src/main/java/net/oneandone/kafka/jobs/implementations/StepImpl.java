@@ -1,6 +1,4 @@
-package net.oneandone.kafka.jobs.executor;
-
-import java.util.concurrent.atomic.AtomicReference;
+package net.oneandone.kafka.jobs.implementations;
 
 import net.oneandone.kafka.jobs.api.Context;
 import net.oneandone.kafka.jobs.api.Job;

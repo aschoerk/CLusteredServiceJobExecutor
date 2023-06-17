@@ -29,6 +29,7 @@
     </developers>
 
     <modules>
+        <module>clustered-service-job-executor-api</module>
         <module>clustered-service-job-executor</module>
     </modules>
 

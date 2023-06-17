@@ -18,6 +18,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>net.oneandone.clustered-service-job-executor</groupId>
+            <artifactId>clustered-service-job-executor-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>

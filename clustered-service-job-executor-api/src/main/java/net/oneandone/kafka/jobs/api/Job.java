@@ -1,5 +1,8 @@
 package net.oneandone.kafka.jobs.api;
 
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 public interface Job<T> {
 
     /**
@@ -12,7 +15,9 @@ public interface Job<T> {
      * a string signifying matching jobs, if name might be the same, but the steps where changed.
      * @return a string signifying matching jobs, if name might be the same, but the steps where changed.
      */
-    String signature();
+    default String signature() {
+        return name() + "|" + Arrays.stream(steps()).map(Step::name).collect(Collectors.joining("|"));
+    }
 
     /**
      * steps to be executed by job

@@ -1,16 +1,16 @@
-package net.oneandone.kafka.jobs.executor;
+package net.oneandone.kafka.jobs.dtos;
 
 import net.oneandone.kafka.jobs.api.Context;
-import net.oneandone.kafka.jobs.api.JobData;
+import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 
 /**
  * @author aschoerk
  */
 public class ContextImpl<T> implements Context<T> {
 
-    JobDataImpl jobData;
+    private JobDataImpl jobData;
 
-    T context;
+    private T context;
 
     public ContextImpl(final JobDataImpl jobData, final T context) {
         this.jobData = jobData;
@@ -18,13 +18,10 @@ public class ContextImpl<T> implements Context<T> {
     }
 
     @Override
-    public JobData jobData() {
+    public JobDataImpl jobData() {
         return jobData;
     }
 
-    public JobDataImpl jobDataImpl() {
-        return jobData;
-    }
 
     @Override
     public T context() {
