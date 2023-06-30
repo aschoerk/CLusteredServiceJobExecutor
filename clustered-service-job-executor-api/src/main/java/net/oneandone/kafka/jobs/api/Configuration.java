@@ -35,4 +35,6 @@ public interface Configuration {
         return "undefined";
     }
 
+    default boolean preferRemoteExecution() { return true; }
+
 }

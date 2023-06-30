@@ -120,7 +120,7 @@ public class MetricCounts extends StoppableBase {
     }
 
     /**
-     * last time delayed Jobs where searched.
+     * last time delayed RemoteJobs where searched.
      */
     public AtomicLong getLastSearchJobsDelayed() {
         return lastSearchJobsDelayed;

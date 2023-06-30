@@ -3,6 +3,7 @@ package net.oneandone.kafka.jobs.executor.support;
 import java.time.Clock;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import net.oneandone.kafka.jobs.api.Configuration;
 import net.oneandone.kafka.jobs.api.Container;
 import net.oneandone.kafka.jobs.api.Transaction;
 import net.oneandone.kafka.jobs.executor.cdi_scopes.CdbThreadScopedContext;
@@ -61,6 +62,21 @@ public class TestContainer implements Container {
     public Transaction getTransaction() {
         return new Transaction() {
 
+        };
+    }
+
+    @Override
+    public Configuration getConfiguration() {
+        return new Configuration() {
+            @Override
+            public int getWaitPhase1Seconds() {
+                return 1;
+            }
+
+            @Override
+            public int getWaitPhase2Seconds() {
+                return 1;
+            }
         };
     }
 

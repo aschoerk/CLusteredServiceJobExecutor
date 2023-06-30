@@ -20,7 +20,7 @@ public class JobTools extends StoppableBase {
     }
 
     public void prepareJobDataForRunning(JobDataImpl jobData) {
-        jobData.setDate(Instant.now(beans.container.getClock()));
+        jobData.setDate(Instant.now(beans.getContainer().getClock()));
         if (jobData.state() == ERROR) {
             jobData.setRetries(0);
         }
@@ -30,7 +30,7 @@ public class JobTools extends StoppableBase {
     void changeStateTo(final JobDataImpl jobData, final State newState) {
         State previousState = jobData.state();
         jobData.setState(newState);
-        beans.container.fire(new JobLifeCycleEvent() {
+        beans.getContainer().fire(new JobLifeCycleEvent() {
             @Override
             public JobData jobData() {
                 return jobData;

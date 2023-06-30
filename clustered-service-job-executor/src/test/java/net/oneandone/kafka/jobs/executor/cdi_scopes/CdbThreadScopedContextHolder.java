@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * The CdbThreadScope-Context allows to use beans annotated by @CdbThreadScoped if activated.
+ * The CdbThreadScope-Transport allows to use beans annotated by @CdbThreadScoped if activated.
  * For activation and deactivation use the Object CdbThreadScopedContext.
  */
 public final class CdbThreadScopedContextHolder implements AlterableContext {
@@ -84,7 +84,7 @@ public final class CdbThreadScopedContextHolder implements AlterableContext {
     void activate() {
         log.trace("activating CdbThreadScopedContext");
         if(isReallyActive()) {
-            log.trace("Trying to activate active CdbThreadScoped-Context: " + active.get());
+            log.trace("Trying to activate active CdbThreadScoped-Transport: " + active.get());
             active.set(active.get()+1);
         }
         else {
@@ -97,7 +97,7 @@ public final class CdbThreadScopedContextHolder implements AlterableContext {
      */
     void deactivate() {
         if(!isReallyActive()) {
-            log.error("Deactivating inactive CdbThreadScoped-Context");
+            log.error("Deactivating inactive CdbThreadScoped-Transport");
         }
         else {
             final Integer activeCount = active.get();

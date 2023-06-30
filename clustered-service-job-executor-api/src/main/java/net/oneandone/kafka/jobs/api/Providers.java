@@ -6,7 +6,9 @@ import java.util.ServiceLoader;
  * @author aschoerk
  */
 public interface Providers {
-    Executor createExecutor(Container container);
+    Engine createEngine(Container container);
+
+    Engine createTestEngine(Container container, Object beansFactory);
 
     static Providers get() {
         ServiceLoader<Providers> loader = ServiceLoader.load(Providers.class);

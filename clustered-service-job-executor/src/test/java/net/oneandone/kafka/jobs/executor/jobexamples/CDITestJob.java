@@ -11,6 +11,10 @@ import net.oneandone.kafka.jobs.api.Step;
 @ApplicationScoped
 public class CDITestJob implements Job<TestContext> {
 
+    public CDITestJob() {
+        CDITestStep.callCount.set(0L);
+    }
+
     @Inject
     CDITestStep cdiTestStep;
 

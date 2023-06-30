@@ -49,6 +49,8 @@ public class StepResult {
     }
 
     public static final StepResult DELAY = new StepResult(StepResultEnum.DELAY);
+
+    public static final StepResult ERROR = new StepResult(StepResultEnum.ERROR);
     /**
      * Step was Stepd successfully. Stop the Job. No further processing of this Job is necessary.
      */
@@ -77,6 +79,10 @@ public class StepResult {
 
     public static StepResult continueAt(Instant instant) {
         return new StepResult(WAIT, instant);
+    }
+
+    public static StepResult errorResult(String error) {
+        return new StepResult(StepResultEnum.ERROR).error(error);
     }
 
     public StepResult error(String error) {

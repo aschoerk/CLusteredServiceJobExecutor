@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
+import net.oneandone.kafka.jobs.api.Container;
 import net.oneandone.kafka.jobs.api.JobData;
 import net.oneandone.kafka.jobs.api.Remark;
 import net.oneandone.kafka.jobs.api.State;
@@ -18,32 +19,44 @@ public class JobDataImpl implements JobData {
 
     private String jobSignature;
 
+    private Instant createdAt;
+
     private State state;
 
     private int step;
+
+    private int stepCount;
 
     private Integer retries = null;
 
     private Instant date = null;
 
-    private Class contextClass;
+    private String contextClass;
+
+    private String resumeDataClass;
+
+    private String correlationId;
 
     private RemarkImpl[] errors = null;
 
     private RemarkImpl[] comments = null;
+    private String groupId = null;
 
-    public <T> JobDataImpl(JobImpl<T> job) {
-        this.jobSignature = job.signature();
-        this.state = State.RUNNING;
-        this.step = 0;
-        this.id = UUID.randomUUID().toString();
+    public <T> JobDataImpl(JobImpl<T> job, final Class<T> contextClass, String correlationId, Container container) {
+        this(UUID.randomUUID().toString(), correlationId, State.RUNNING, job.signature(), 0, 0);
+
+        this.contextClass = contextClass.getCanonicalName();
+        this.createdAt = container.getClock().instant();
     }
 
-    public JobDataImpl(final String id, final State state, final String signature, final int step) {
+    public JobDataImpl(final String id, final String correlationId, final State state, final String signature,
+                       final int step, final int stepCount) {
         this.id = id;
+        this.correlationId = correlationId;
         this.state = state;
         this.jobSignature = signature;
         this.step = step;
+        this.stepCount = stepCount;
     }
 
     @Override
@@ -54,6 +67,11 @@ public class JobDataImpl implements JobData {
     @Override
     public String jobSignature() {
         return jobSignature;
+    }
+
+    @Override
+    public Instant createdAt() {
+        return createdAt;
     }
 
     @Override
@@ -77,8 +95,22 @@ public class JobDataImpl implements JobData {
     }
 
     @Override
-    public Class contextClass() {
+    public int stepCount() { return stepCount; }
+
+    @Override
+    public String contextClass() {
         return contextClass;
+    }
+
+
+    @Override
+    public String resumeDataClass() {
+        return resumeDataClass;
+    }
+
+    @Override
+    public String groupId() {
+        return groupId;
     }
 
     public void setErrors(final RemarkImpl[] remarks) {
@@ -88,12 +120,16 @@ public class JobDataImpl implements JobData {
         this.comments = remarks;
     }
 
-    public void setContextClass(final Class contextClass) {
+    public void setContextClass(final String contextClass) {
         this.contextClass = contextClass;
     }
 
+
     @Override
-    public Integer retries() {
+    public int retries() {
+        if (retries == null) {
+            retries = 0;
+        }
         return retries;
     }
 
@@ -142,5 +178,39 @@ public class JobDataImpl implements JobData {
     @Override
     public int hashCode() {
         return Objects.hash(id);
+    }
+
+    public void incStepCount() {
+        stepCount++;
+    }
+
+    @Override
+    public String toString() {
+        return "JobDataImpl{" +
+               "id='" + id + '\'' +
+               ", state=" + state +
+               ", step=" + step +
+               ", stepCount=" + stepCount +
+               ", retries=" + retries +
+               ", date=" + date +
+               ", contextClass=" + contextClass +
+               '}';
+    }
+
+    public String getResumeDataClass() {
+        return resumeDataClass;
+    }
+
+    public void setResumeDataClass(final String resumeDataClassP) {
+        this.resumeDataClass = resumeDataClassP;
+    }
+
+    @Override
+    public String correlationId() {
+        return correlationId;
+    }
+
+    public void setCorrelationId(final String correlationId) {
+        this.correlationId = correlationId;
     }
 }

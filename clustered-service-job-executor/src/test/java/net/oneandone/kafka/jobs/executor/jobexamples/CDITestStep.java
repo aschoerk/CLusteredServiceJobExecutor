@@ -3,6 +3,7 @@ package net.oneandone.kafka.jobs.executor.jobexamples;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import net.oneandone.kafka.jobs.api.KjeException;
 import net.oneandone.kafka.jobs.api.Step;
@@ -22,6 +23,8 @@ public class CDITestStep implements Step<TestContext> {
 
     static AtomicInteger threadCount = new AtomicInteger(0);
 
+    static AtomicLong callCount = new AtomicLong(0L);
+
     Random random = new Random();
 
     @Override
@@ -35,7 +38,11 @@ public class CDITestStep implements Step<TestContext> {
             }
             Thread.sleep(random.nextInt(10));
             context.i++;
-            return StepResult.DONE;
+            if (callCount.incrementAndGet() % 5 == 0) {
+                return StepResult.DELAY.error("repeat every 5 calls please");
+            } else {
+                return StepResult.DONE;
+            }
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } finally {

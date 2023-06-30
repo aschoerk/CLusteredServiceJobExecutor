@@ -1,9 +1,9 @@
 package net.oneandone.kafka.jobs.api;
 
 /**
- * @author aschoerk
+ * @param <Context> see Job
  */
-public interface Step<T> {
+public interface Step<Context> {
 
     /**
      * A name of the step used to identify comparable steps
@@ -17,11 +17,15 @@ public interface Step<T> {
      *                further steps will see the results of those changes.
      * @return the result which controls how the job is executed further
      */
-    StepResult handle(T context);
+    StepResult handle(Context context);
 
-    default Context<T> getContext() { throw new KjeException("Using unregistered job/step"); }
+    default <R> StepResult handle(Context context, R remoteData) {
+        return handle(context);
+    }
 
-    default Job<T> getJob() { throw new KjeException("Using unregistered job/step"); }
+    default Context getContext() { throw new KjeException("Using unregistered job/step"); }
+
+    default Job<Context> getJob() { throw new KjeException("Using unregistered job/step"); }
 
 
 }

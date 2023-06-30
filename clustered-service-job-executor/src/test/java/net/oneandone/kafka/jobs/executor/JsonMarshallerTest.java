@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
+import net.oneandone.kafka.jobs.api.Container;
 import net.oneandone.kafka.jobs.api.State;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.RemarkImpl;
@@ -14,6 +16,9 @@ import net.oneandone.kafka.jobs.tools.JsonMarshaller;
  * @author aschoerk
  */
 public class JsonMarshallerTest {
+
+
+
     @ParameterizedTest
     @CsvSource({"idxx,RUNNING,signatur,0",
             "idxx,DELAYED,xxx,0",
@@ -21,7 +26,7 @@ public class JsonMarshallerTest {
             "idxx,RUNNING,signatur,0",
             "idxx,RUNNING,signatur,0"})
     void simpleJobDataImpl(String id, State state, String signature, int step) {
-        JobDataImpl jobData = new JobDataImpl(id,state,signature,step);
+        JobDataImpl jobData = new JobDataImpl(id,null,state,signature,step, 0);
         jobData.setErrors(new RemarkImpl[0]);
         jobData.setComments(new RemarkImpl[0]);
         String json = JsonMarshaller.gson.toJson(jobData);

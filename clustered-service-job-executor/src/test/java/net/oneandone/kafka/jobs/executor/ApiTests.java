@@ -1,13 +1,25 @@
 package net.oneandone.kafka.jobs.executor;
 
 
-import java.util.ArrayList;
-import java.util.List;
+import static net.oneandone.kafka.jobs.api.State.DONE;
+import static net.oneandone.kafka.jobs.api.State.ERROR;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,15 +28,23 @@ import com.oneandone.iocunit.analyzer.annotations.SutClasses;
 import com.oneandone.iocunit.analyzer.annotations.TestClasses;
 
 import jakarta.inject.Inject;
-import net.oneandone.kafka.jobs.api.Context;
-import net.oneandone.kafka.jobs.api.Executor;
+import net.oneandone.kafka.jobs.api.RemoteExecutor;
+import net.oneandone.kafka.jobs.api.Transport;
+import net.oneandone.kafka.jobs.api.Engine;
+import net.oneandone.kafka.jobs.api.Job;
 import net.oneandone.kafka.jobs.api.Providers;
+import net.oneandone.kafka.jobs.api.State;
+import net.oneandone.kafka.jobs.beans.Beans;
+import net.oneandone.kafka.jobs.beans.LocalRemoteExecutor;
+import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.executor.cdi_scopes.CdbThreadScopedExtension;
 import net.oneandone.kafka.jobs.executor.jobexamples.CDITestJob;
 import net.oneandone.kafka.jobs.executor.jobexamples.TestContext;
 import net.oneandone.kafka.jobs.executor.jobexamples.TestJob;
+import net.oneandone.kafka.jobs.executor.support.TestBeansFactory;
 import net.oneandone.kafka.jobs.executor.support.TestContainer;
 import net.oneandone.kafka.jobs.executor.support.TestResources;
+import net.oneandone.kafka.jobs.implementations.JobImpl;
 
 @ExtendWith(IocJUnit5Extension.class)
 @SutClasses({CdbThreadScopedExtension.class})
@@ -48,28 +68,75 @@ public class ApiTests {
 
     @Test
     void test() throws InterruptedException {
-        Executor executor = Providers.get().createExecutor(testResources.getContainer());
+        final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
+        Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
         TestJob jobTemplate = new TestJob();
-        executor.register(jobTemplate, TestContext.class);
-        Context<TestContext> context = executor.create(jobTemplate, new TestContext());
-        while (context.context().getI() < 1) {
+        engine.register(jobTemplate, TestContext.class);
+        Transport transport = engine.create(jobTemplate, new TestContext());
+        Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSender().lastContexts.entrySet();
+        while (contexts.size() == 0 || ((TestContext)contexts.iterator().next().getValue().getContext(TestContext.class)).getI() < 1) {
             Thread.sleep(200);
         }
+    }
+
+
+    @Test
+    void jobsTest() {
+        final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
+        Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
+        TestJob jobTemplate = new TestJob();
     }
 
     @Inject
     CDITestJob cdiTestJob;
 
-    @Test
-    void cdiTest() throws InterruptedException {
-        Executor executor = Providers.get().createExecutor(testResources.getContainer());
-        executor.register(cdiTestJob, TestContext.class);
-        List<Context<TestContext>> contexts = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
-            contexts.add(executor.create(cdiTestJob, new TestContext()));
+    RemoteExecutor createRemoteTestExecutor(Job job) {
+        Beans beans = Mockito.mock(Beans.class);
+        HashMap<String, Job> tmpMap = new HashMap<>();
+        tmpMap.put(job.signature(), new JobImpl(job, TestContext.class));
+        Mockito.doReturn(tmpMap).when(beans).getJobs();
+        return new LocalRemoteExecutor(beans);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true,1,1,2,0,0,0",
+            "false,2,2,4,0,0,0",
+            "false,3,3,7,1,0,0",
+            "false,4,4,9,1,0,0",
+            "false,5,5,12,2,0,0",
+            "false,10,10,24,4,0,0",
+            // 200 / 5 = 40, 40 / 5 = 8, 8 / 5 = 1 -- 49 times delayed
+            "true,100,100,249,49,0,0",
+            "false,100,100,249,49,0,0"
+    }
+    )
+    void cdiTest(boolean doremote, int loops, int expectedDone, int expectedRunning, int expectedDelayed, int expectedSuspended, int expectedError) throws InterruptedException {
+        final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
+        Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
+        engine.register(cdiTestJob, TestContext.class);
+        if (doremote) {
+            engine.register(createRemoteTestExecutor(cdiTestJob));
         }
-        while (contexts.stream().anyMatch(c -> c.context().getI() < 2)) {
+        doTest(loops, expectedDone, expectedRunning, expectedDelayed, expectedSuspended, expectedError, testBeansFactory, engine);
+    }
+
+    private void doTest(final int loops, final int expectedDone, final int expectedRunning, final int expectedDelayed, final int expectedSuspended, final int expectedError, final TestBeansFactory testBeansFactory, final Engine engine) throws InterruptedException {
+        List<Transport> orgcontexts = new ArrayList<>();
+        for (int i = 0; i < loops; i++) {
+            orgcontexts.add(engine.create(cdiTestJob, new TestContext()));
+        }
+        Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSender().lastContexts.entrySet();
+        Set<Map.Entry<String, State>> states = testBeansFactory.getTestSender().jobStates.entrySet();
+        while (contexts.stream().anyMatch(c -> c.getValue().jobData().state() != DONE && c.getValue().jobData().state() != ERROR)
+        || states.stream().anyMatch(c -> !(c.getValue().equals(DONE) || c.getValue().equals(ERROR)))) {
             Thread.sleep(200);
         }
+        Map<State, AtomicInteger> stateCounts = testBeansFactory.getTestSender().stateCounts;
+        Assertions.assertEquals(expectedDone, stateCounts.get(DONE).get());
+        Assertions.assertEquals(expectedRunning, stateCounts.get(State.RUNNING).get());
+        Assertions.assertEquals(expectedDelayed, stateCounts.get(State.DELAYED).get());
+        Assertions.assertEquals(expectedSuspended, stateCounts.get(State.SUSPENDED).get());
+        Assertions.assertEquals(expectedError, stateCounts.get(ERROR).get());
     }
 }

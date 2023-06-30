@@ -21,6 +21,13 @@ public class TestResources {
     @Inject
     CdbThreadScopedContext cdbThreadScopedContext;
 
+    public TestBeansFactory getTestBeansFactory() {
+        return testBeansFactory;
+    }
+
+    @Inject
+    TestBeansFactory testBeansFactory;
+
     @Produces
     public Clock produceClock() {
         return Clock.systemUTC();
