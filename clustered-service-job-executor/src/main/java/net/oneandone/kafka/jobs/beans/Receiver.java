@@ -37,12 +37,10 @@ public class Receiver extends StoppableBase {
 
     private Thread jobDataReceiverThread;
 
-    private KafkaConsumer<String, String> singleJobConsumer;
-
     @Override
     public void setShutDown() {
         super.setShutDown();
-        singleJobConsumer.close();
+        waitForThreads(jobDataReceiverThread, jobStateReceiverThread);
     }
 
     public Receiver(Beans beans) {
@@ -65,7 +63,6 @@ public class Receiver extends StoppableBase {
         Map<String, Object> singleJobConsumerConfig = getConsumerConfig(beans);
         consumerConfig.put(MAX_POLL_RECORDS_CONFIG, 1);
         consumerConfig.put(GROUP_ID_CONFIG, beans.getContainer().getConfiguration().getNodeName());
-        singleJobConsumer = new KafkaConsumer<String, String>(singleJobConsumerConfig);
     }
 
     private static Map<String, Object> getConsumerConfig(final Beans beans) {

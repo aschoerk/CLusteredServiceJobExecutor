@@ -91,4 +91,10 @@ public class EngineImpl extends StoppableBase implements Engine {
         resume(jobID, resumeData, null);
     }
 
+
+    @Override
+    public void stop() {
+        beans.setShutDown();
+        waitForStoppables(beans);
+    }
 }

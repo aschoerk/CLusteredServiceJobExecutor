@@ -16,7 +16,11 @@ import net.oneandone.kafka.jobs.api.Transport;
 /**
  * @author aschoerk
  */
-public class RemoteExecutors implements RemoteExecutor {
+public class RemoteExecutors extends StoppableBase implements RemoteExecutor {
+
+    public RemoteExecutors(final Beans beans) {
+        super(beans);
+    }
 
     Map<String, List<RemoteExecutor>> executors = new ConcurrentHashMap<>();
     @Override

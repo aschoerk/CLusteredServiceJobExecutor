@@ -119,6 +119,8 @@ public class ApiTests {
             engine.register(createRemoteTestExecutor(cdiTestJob));
         }
         doTest(loops, expectedDone, expectedRunning, expectedDelayed, expectedSuspended, expectedError, testBeansFactory, engine);
+
+        engine.stop();
     }
 
     private void doTest(final int loops, final int expectedDone, final int expectedRunning, final int expectedDelayed, final int expectedSuspended, final int expectedError, final TestBeansFactory testBeansFactory, final Engine engine) throws InterruptedException {
@@ -138,5 +140,6 @@ public class ApiTests {
         Assertions.assertEquals(expectedDelayed, stateCounts.get(State.DELAYED).get());
         Assertions.assertEquals(expectedSuspended, stateCounts.get(State.SUSPENDED).get());
         Assertions.assertEquals(expectedError, stateCounts.get(ERROR).get());
+
     }
 }

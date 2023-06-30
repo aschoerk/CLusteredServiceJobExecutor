@@ -12,7 +12,7 @@ import net.oneandone.kafka.jobs.implementations.JobImpl;
 /**
  * @author aschoerk
  */
-public class Beans {
+public class Beans extends StoppableBase {
 
     private final Container container;
     private final EngineImpl engine;
@@ -38,6 +38,7 @@ public class Beans {
     private RemoteExecutors remoteExecutors;
 
     public Beans(Container container, BeansFactory beansFactory) {
+        super(null);
         this.container = container;
 
         jobs = beansFactory.createJobsMap();
@@ -52,6 +53,7 @@ public class Beans {
         this.pendingHandler = beansFactory.createPendingHandler(this);
         this.metricCounts = beansFactory.createMetricCounts(this);
         this.remoteExecutors = beansFactory.createRemoteExecutors(this);
+        setRunning();
     }
 
     public Map<String, Map<String, JobDataState>> getJobDataCorrelationIds() {
@@ -104,4 +106,26 @@ public class Beans {
 
     public RemoteExecutors getRemoteExecutors() { return remoteExecutors; }
 
+
+    @Override
+    public void setShutDown() {
+        this.beans = this;
+        super.setShutDown();
+        receiver.setShutDown();
+        Thread queueWaiter = container.createThread (() -> {
+                    while (!queue.isEmpty()) {
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                });
+        queueWaiter.start();
+        waitForThreads(queueWaiter);
+        executor.setShutDown();
+        waitForStoppables(receiver, executor);
+        pendingHandler.setShutDown();
+        this.stopStoppables(engine, jobTools, sender, metricCounts, remoteExecutors);
+    }
 }

@@ -6,6 +6,7 @@ import static net.oneandone.kafka.jobs.api.State.DONE;
 
 import java.time.Instant;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import net.oneandone.kafka.jobs.api.Configuration;
 import net.oneandone.kafka.jobs.api.JobData;
@@ -27,6 +28,12 @@ public class Executor extends StoppableBase {
 
     Thread dequer;
 
+    @Override
+    public void setShutDown() {
+        super.setShutDown();
+        waitForThreads(dequer);
+    }
+
     public Executor(final Beans beans) {
         super(beans);
         dequer = beans.getContainer().createThread(() -> {
@@ -34,7 +41,7 @@ public class Executor extends StoppableBase {
             setRunning();
             while (!doShutDown()) {
                 try {
-                    final TransportImpl element = beans.getQueue().takeLast();
+                    final TransportImpl element = beans.getQueue().pollLast(500, TimeUnit.MILLISECONDS);
                     if (element != null) {
                         Thread thread = beans.getContainer().createThread(
                                 () -> processStep(element)

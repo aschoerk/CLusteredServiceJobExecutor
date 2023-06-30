@@ -76,8 +76,12 @@ public class PendingHandler extends StoppableBase {
     public void run() {
         initThreadName(this.getClass().getSimpleName());
         setRunning();
-        while (!doShutDown()) {
-            loopBody();
+        try {
+            while (!doShutDown()) {
+                loopBody();
+            }
+        } finally {
+            setRunning(false);
         }
     }
 
@@ -91,11 +95,14 @@ public class PendingHandler extends StoppableBase {
     private void waitOrAcceptNotify(final Duration toWait) {
         if(!toWait.isNegative()) {
             try {
-                final long toWaitTime = toWait.toMillis();
+                long toWaitTime = toWait.toMillis();
+                if (toWaitTime > 500) {
+                    toWaitTime = 500;
+                }
                 logger.info("Waiting for notify or {} milliseconds", toWaitTime);
                 if (toWaitTime > 0) {
                     synchronized (this) {
-                        this.wait(toWait.toMillis());
+                        this.wait(toWaitTime);
                     }
                 }
             } catch (InterruptedException e) {
@@ -144,5 +151,13 @@ public class PendingHandler extends StoppableBase {
                 logger.error(String.format("Executing PendingTask: %s Exception:", pendingTask.jobData().id()), t);
             }
         }
+    }
+
+    @Override
+    public void setShutDown() {
+        super.setShutDown();
+        waitForThreads(pendingHandlerThread);
+        waitForStoppables(this);
+        sortedPending.stream().forEach(p -> beans.getSender().send(p));
     }
 }

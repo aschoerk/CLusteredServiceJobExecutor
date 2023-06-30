@@ -49,4 +49,6 @@ public interface Engine {
      */
     <R> void resume(String jobID, R resumeData);
 
+    void stop();
+
 }

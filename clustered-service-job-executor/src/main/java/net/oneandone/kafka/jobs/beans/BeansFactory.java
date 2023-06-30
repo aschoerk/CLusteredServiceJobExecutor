@@ -54,6 +54,6 @@ public class BeansFactory {
     Map<String, Map<String, JobDataState>> createJobDataCorrelationIds() {return new ConcurrentHashMap<>(); }
 
     public RemoteExecutors createRemoteExecutors(final Beans beans) {
-        return new RemoteExecutors();
+        return new RemoteExecutors(beans);
     }
 }
