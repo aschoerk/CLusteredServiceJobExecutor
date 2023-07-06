@@ -62,6 +62,10 @@ public class TransportImpl implements Transport {
         return unmarshall(clazz, context);
     }
 
+    public <T> void setContext(Object object) {
+        context = marshall(object);
+    }
+
     public <T> T getResumeData(Class<T> clazz) {
         return unmarshall(clazz, resumeData);
     }
@@ -71,6 +75,15 @@ public class TransportImpl implements Transport {
         T result = beans.getContainer().unmarshal(tmp, clazz);
         if (result == null) {
             return JsonMarshaller.gson.fromJson(tmp, clazz);
+        } else {
+            return result;
+        }
+    }
+
+    private String marshall(Object object) {
+        String result = beans.getContainer().marshal(object);
+        if (result == null) {
+            return JsonMarshaller.gson.toJson(object);
         } else {
             return result;
         }

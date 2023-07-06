@@ -1,12 +1,14 @@
 package net.oneandone.kafka.jobs.beans;
 
 import java.util.Map;
+import java.util.Set;
 
 import net.oneandone.kafka.jobs.api.Engine;
 import net.oneandone.kafka.jobs.api.Job;
 import net.oneandone.kafka.jobs.api.KjeException;
 import net.oneandone.kafka.jobs.api.RemoteExecutor;
 import net.oneandone.kafka.jobs.api.Transport;
+import net.oneandone.kafka.jobs.dtos.CorrelationId;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
@@ -51,13 +53,11 @@ public class EngineImpl extends StoppableBase implements Engine {
         }
 
         if(correlationId != null) {
-            Map<String, JobDataState> perJobName = beans.getJobDataCorrelationIds().get(job.name());
-            if(perJobName != null) {
-                JobDataState state = perJobName.get(correlationId);
-                if(state != null) {
-                    TransportImpl existing = beans.getReceiver().readJob(state);
-                    return existing;
-                }
+            CorrelationId correlationIdRec = new CorrelationId(correlationId, job.name());
+            JobDataState state = beans.getJobDataCorrelationIds().get(correlationIdRec);
+            if(state != null) {
+                TransportImpl existing = beans.getReceiver().readJob(state);
+                return existing;
             }
         }
 

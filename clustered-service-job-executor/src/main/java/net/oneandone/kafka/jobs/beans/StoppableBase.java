@@ -45,23 +45,23 @@ class StoppableBase implements Stoppable {
     }
 
     protected void waitForThreads(Thread ... threads) {
-        beans.getContainer().createThread(new Thread(() -> {
+        beans.getContainer().createThread(() -> {
             try {
                 Instant startTime = beans.getContainer().getClock().instant();
-                while (Arrays.stream(threads).anyMatch(t -> t.isAlive()) && startTime.plus(Duration.ofMillis(5000)).isAfter(beans.getContainer().getClock().instant())) {
+                while (Arrays.stream(threads).anyMatch(t -> t != null && t.isAlive()) && startTime.plus(Duration.ofMillis(5000)).isAfter(beans.getContainer().getClock().instant())) {
                     Thread.sleep(10);
                 }
-                Arrays.stream(threads).filter(t -> t.isAlive()).forEach(
+                Arrays.stream(threads).filter(t -> t != null && t.isAlive()).forEach(
                         t -> t.interrupt()
                 );
-                while (Arrays.stream(threads).anyMatch(t -> t.isAlive()) && startTime.plus(Duration.ofMillis(5000)).isAfter(beans.getContainer().getClock().instant())) {
+                while (Arrays.stream(threads).anyMatch(t -> t != null && t.isAlive()) && startTime.plus(Duration.ofMillis(5000)).isAfter(beans.getContainer().getClock().instant())) {
                     Thread.sleep(10);
                 }
             } catch (InterruptedException i) {
                 Thread.interrupted();
             }
             setRunning(false);
-        })).start();
+        }).start();
     }
 
     protected void waitForStoppables(Stoppable ... stoppables) {

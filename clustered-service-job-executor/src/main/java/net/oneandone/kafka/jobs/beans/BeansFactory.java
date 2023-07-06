@@ -5,6 +5,7 @@ import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import net.oneandone.kafka.jobs.dtos.CorrelationId;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
@@ -51,9 +52,11 @@ public class BeansFactory {
 
     Map<String, JobDataState> createJobDataStates() {return new ConcurrentHashMap<>(); }
 
-    Map<String, Map<String, JobDataState>> createJobDataCorrelationIds() {return new ConcurrentHashMap<>(); }
+    Map<CorrelationId, JobDataState> createJobDataCorrelationIds() {return new ConcurrentHashMap<>(); }
 
     public RemoteExecutors createRemoteExecutors(final Beans beans) {
         return new RemoteExecutors(beans);
     }
+
+    public Reviver createResurrection(final Beans beans) { return new Reviver(beans); }
 }

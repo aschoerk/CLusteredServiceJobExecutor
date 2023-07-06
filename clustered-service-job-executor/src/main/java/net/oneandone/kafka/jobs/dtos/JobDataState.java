@@ -1,6 +1,7 @@
 package net.oneandone.kafka.jobs.dtos;
 
 import java.time.Instant;
+import java.util.Objects;
 
 import net.oneandone.kafka.jobs.api.State;
 
@@ -38,6 +39,11 @@ public class JobDataState {
      * SUSPENDED: the expected timestamp when the suspended job should get rescheduled if no resume occurred.
      */
     private final Instant date;
+
+    /**
+     * the timestamp, the job was created at.
+     */
+    private final Instant createdAt;
     /**
      * the partition where the instance of the job is to be found on JobDataTopic
      */
@@ -48,10 +54,12 @@ public class JobDataState {
     private final long offset;
 
     public JobDataState(final String id, final State state, final int partition, final long offset, final Instant date,
-                        final int stepCount, final String correlationId, final String groupId, final String jobName) {
+                        final Instant createdAt, final int stepCount, final String correlationId, final String groupId,
+                        final String jobName) {
         this.id = id;
         this.state = state;
         this.date = date;
+        this.createdAt = createdAt;
         this.partition = partition;
         this.offset = offset;
         this.stepCount = stepCount;
@@ -60,8 +68,8 @@ public class JobDataState {
         this.jobName = jobName;
     }
     public JobDataState(final String id, final State state, final int partition, final long offset, final Instant date,
-                        final int stepCount) {
-        this(id,state,partition, offset, date, stepCount, null, null, null);
+                        final Instant createdAt, final int stepCount) {
+        this(id,state,partition, offset, date, createdAt, stepCount, null, null, null);
     }
 
     public String getJobName() {
@@ -96,13 +104,42 @@ public class JobDataState {
         return offset;
     }
 
+    public String getGroupId() {
+        return groupId;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if(this == o) {
+            return true;
+        }
+        if((o == null) || (getClass() != o.getClass())) {
+            return false;
+        }
+        JobDataState that = (JobDataState) o;
+        return id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
     @Override
     public String toString() {
         return "JobDataState{" +
-               "id='" + id + '\'' +
+               "correlationId='" + correlationId + '\'' +
+               ", groupId='" + groupId + '\'' +
+               ", jobName='" + jobName + '\'' +
+               ", id='" + id + '\'' +
                ", state=" + state +
                ", stepCount=" + stepCount +
                ", date=" + date +
+               ", createdAt=" + createdAt +
                ", partition=" + partition +
                ", offset=" + offset +
                '}';

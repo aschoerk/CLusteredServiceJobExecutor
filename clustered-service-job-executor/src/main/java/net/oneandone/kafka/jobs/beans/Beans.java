@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.concurrent.BlockingDeque;
 
 import net.oneandone.kafka.jobs.api.Container;
-import net.oneandone.kafka.jobs.api.RemoteExecutor;
+import net.oneandone.kafka.jobs.dtos.CorrelationId;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
@@ -31,10 +31,11 @@ public class Beans extends StoppableBase {
 
     private final Map<String, JobImpl> jobs;
 
-    private final Map<String, Map<String, JobDataState>> jobDataCorrelationIds;
+    private final Map<CorrelationId, JobDataState> jobDataCorrelationIds;
     private final JobTools jobTools;
 
     private final MetricCounts metricCounts;
+    private final Reviver reviver;
     private RemoteExecutors remoteExecutors;
 
     public Beans(Container container, BeansFactory beansFactory) {
@@ -53,10 +54,11 @@ public class Beans extends StoppableBase {
         this.pendingHandler = beansFactory.createPendingHandler(this);
         this.metricCounts = beansFactory.createMetricCounts(this);
         this.remoteExecutors = beansFactory.createRemoteExecutors(this);
+        this.reviver = beansFactory.createResurrection(this);
         setRunning();
     }
 
-    public Map<String, Map<String, JobDataState>> getJobDataCorrelationIds() {
+    public Map<CorrelationId, JobDataState> getJobDataCorrelationIds() {
         return jobDataCorrelationIds;
     }
 
@@ -111,6 +113,7 @@ public class Beans extends StoppableBase {
     public void setShutDown() {
         this.beans = this;
         super.setShutDown();
+        reviver.setShutDown();
         receiver.setShutDown();
         Thread queueWaiter = container.createThread (() -> {
                     while (!queue.isEmpty()) {
@@ -124,8 +127,12 @@ public class Beans extends StoppableBase {
         queueWaiter.start();
         waitForThreads(queueWaiter);
         executor.setShutDown();
-        waitForStoppables(receiver, executor);
+        waitForStoppables(receiver, executor, reviver);
         pendingHandler.setShutDown();
         this.stopStoppables(engine, jobTools, sender, metricCounts, remoteExecutors);
+    }
+
+    public Reviver getResurrection() {
+        return reviver;
     }
 }

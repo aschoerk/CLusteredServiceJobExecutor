@@ -69,7 +69,8 @@ public class Sender extends StoppableBase {
 
     public void sendState(JobDataImpl jobData, ConsumerRecord r) {
 
-        JobDataState jobDataState = new JobDataState(jobData.id(), jobData.state(), r.partition(), r.offset(), jobData.date(), jobData.stepCount());
+        JobDataState jobDataState = new JobDataState(jobData.id(), jobData.state(),
+                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.stepCount());
         logger.info("Sending: {}", jobDataState);
         String toSend = JsonMarshaller.gson.toJson(jobDataState);
         getJobDataProducer().send(new ProducerRecord(beans.getContainer().getJobStateTopicName(), jobData.id(), toSend));

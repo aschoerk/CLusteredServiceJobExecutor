@@ -99,7 +99,9 @@ public class PendingHandler extends StoppableBase {
                 if (toWaitTime > 500) {
                     toWaitTime = 500;
                 }
-                logger.info("Waiting for notify or {} milliseconds", toWaitTime);
+                if (sortedPending.size() > 0) {
+                    logger.info("Waiting for notify or {} milliseconds next entry {}", toWaitTime, sortedPending.first().context());
+                }
                 if (toWaitTime > 0) {
                     synchronized (this) {
                         this.wait(toWaitTime);

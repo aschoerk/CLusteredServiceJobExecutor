@@ -1,6 +1,7 @@
 package net.oneandone.kafka.jobs.executor.support;
 
 import java.time.Clock;
+import java.time.Duration;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import net.oneandone.kafka.jobs.api.Configuration;
@@ -69,14 +70,15 @@ public class TestContainer implements Container {
     public Configuration getConfiguration() {
         return new Configuration() {
             @Override
-            public int getWaitPhase1Seconds() {
-                return 1;
+            public Duration getInitialWaitTimePhase1() {
+                return Duration.ofSeconds(1);
             }
 
             @Override
-            public int getWaitPhase2Seconds() {
-                return 1;
+            public Duration getInitialWaitTimePhase2() {
+                return Duration.ofSeconds(1);
             }
+
         };
     }
 

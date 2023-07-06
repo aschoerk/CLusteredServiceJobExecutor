@@ -56,9 +56,9 @@ public class Executor extends StoppableBase {
         dequer.start();
     }
 
-    int randomizedPeriod(int maxWaitTime) {
+    public long randomizedPeriod(long maxWaitTime) {
         if (maxWaitTime != 0) {
-            return random.nextInt(maxWaitTime);
+            return random.nextLong() % maxWaitTime;
         } else {
             return 0;
         }
@@ -89,14 +89,19 @@ public class Executor extends StoppableBase {
         if (retries < configuration.getMaxPhase1Tries() + configuration.getMaxPhase2Tries() ) {
             retries++;
             beans.getJobTools().changeStateTo(jobData, DELAYED);
-            int time;
-            int minimalWaitTimePhase1;
+            long time;
+            long minimalWaitTimePhase1;
             if (retries < configuration.getMaxPhase1Tries()) {
-                minimalWaitTimePhase1 = retries * configuration.getWaitPhase1Seconds();
+                minimalWaitTimePhase1 = configuration.getInitialWaitTimePhase1().multipliedBy((long)(Math.pow(2,retries-1))).toSeconds();
                 time = minimalWaitTimePhase1 + randomizedPeriod(minimalWaitTimePhase1);
             } else {
-                minimalWaitTimePhase1 = (configuration.getMaxPhase1Tries() + 1) * configuration.getWaitPhase1Seconds();
-                final int minimalWaitTimePhase2 = ((retries - configuration.getMaxPhase1Tries()) + 1) * configuration.getWaitPhase2Seconds();
+                minimalWaitTimePhase1 = configuration
+                        .getInitialWaitTimePhase1()
+                        .multipliedBy((long)(Math.pow(2,configuration.getMaxPhase1Tries()))).toSeconds();
+                final long minimalWaitTimePhase2 =
+                        configuration
+                                .getInitialWaitTimePhase2()
+                                .multipliedBy((long)(Math.pow(2,(retries - configuration.getMaxPhase1Tries())))).toSeconds();
                 time = minimalWaitTimePhase1 + minimalWaitTimePhase2 + randomizedPeriod(minimalWaitTimePhase2);
             }
             jobData.setDate(Instant.now(beans.getContainer().getClock()).plus(time, SECONDS));
@@ -120,12 +125,14 @@ public class Executor extends StoppableBase {
                 Step step = job.steps()[currentStep];
                 jobData.incStepCount();
                 try {
+                    final Object context = element.getContext(Class.forName(jobData.contextClass()));
                     if(element.resumeData() != null) {
-                        result =  step.handle(element.getContext(Class.forName(jobData.contextClass())), element.getResumeData(Class.forName(jobData.resumeDataClass())));
+                        result =  step.handle(context, element.getResumeData(Class.forName(jobData.resumeDataClass())));
                     }
                     else {
-                        result =  step.handle(element.getContext(Class.forName(jobData.contextClass())));
+                        result =  step.handle(context);
                     }
+                    element.setContext(context);
                 } catch(ClassNotFoundException cne) {
                     throw new KjeException("Could not get Class: " + cne);
                 }
