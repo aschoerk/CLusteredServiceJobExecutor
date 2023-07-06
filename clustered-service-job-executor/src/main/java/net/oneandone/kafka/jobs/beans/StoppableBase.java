@@ -44,8 +44,15 @@ class StoppableBase implements Stoppable {
         return shutdown;
     }
 
-    protected void waitForThreads(Thread ... threads) {
+    protected void waitForThreads(Thread... threads) {
         beans.getContainer().createThread(() -> {
+            initThreadName("WaitForThreads");
+            Arrays.stream(threads).forEach(t ->
+            {
+                if(t != null) {
+                    logger.info("Waiting for Thread to end {}", t.getName());
+                }
+            });
             try {
                 Instant startTime = beans.getContainer().getClock().instant();
                 while (Arrays.stream(threads).anyMatch(t -> t != null && t.isAlive()) && startTime.plus(Duration.ofMillis(5000)).isAfter(beans.getContainer().getClock().instant())) {
@@ -64,7 +71,7 @@ class StoppableBase implements Stoppable {
         }).start();
     }
 
-    protected void waitForStoppables(Stoppable ... stoppables) {
+    protected void waitForStoppables(Stoppable... stoppables) {
         try {
             while (Arrays.stream(stoppables).anyMatch(t -> t.isRunning())) {
                 Thread.sleep(10);
@@ -74,10 +81,10 @@ class StoppableBase implements Stoppable {
         }
     }
 
-    protected void stopStoppables(Stoppable ... stoppables) {
+    protected void stopStoppables(Stoppable... stoppables) {
         Arrays.stream(stoppables).forEach(s -> {
             while (s.isRunning()) s.setShutDown();
-        } );
+        });
     }
 
     protected void initThreadName(final String name) {

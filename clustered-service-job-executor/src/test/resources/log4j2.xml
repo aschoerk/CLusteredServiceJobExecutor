@@ -7,7 +7,7 @@
         <InterceptingAppender name="InterceptingAppender" consoleLevel="TRACE"/>
     </Appenders>
     <Loggers>
-        <Root level="ERROR  ">
+        <Root level="ERROR">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="InterceptingAppender" />
         </Root>

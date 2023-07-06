@@ -119,8 +119,10 @@ public class Receiver extends StoppableBase {
                     currentEndOffsets.remove(e.getKey().partition());
                 }
             });
+            consumer.assign(topicPartitions);
+            consumer.seekToBeginning(topicPartitions);
 
-            consumer.subscribe(Collections.singleton(jobStateTopicName));
+            // consumer.subscribe(Collections.singleton(jobStateTopicName));
             while (!doShutDown()) {
 
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
@@ -201,6 +203,7 @@ public class Receiver extends StoppableBase {
         consumerConfig.put(GROUP_ID_CONFIG, beans.getContainer().getConfiguration().getNodeName());
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(consumerConfig)) {
             TopicPartition topicPartition = new TopicPartition(beans.getContainer().getJobDataTopicName(), state.getPartition());
+            consumer.assign(Collections.singletonList(topicPartition));
             consumer.seek(topicPartition, state.getOffset());
             boolean found = false;
             do {

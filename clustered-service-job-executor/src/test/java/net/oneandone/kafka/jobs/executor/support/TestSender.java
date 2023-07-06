@@ -36,16 +36,55 @@ public class TestSender extends Sender {
 
     @Override
     public <T> void send(final TransportImpl context) {
-        final JobDataImpl jobData = context.jobData();
-        lastContexts.put(Pair.of(jobData.contextClass(), jobData.id()), context );
+        synchronized (lastContexts) {
+            final JobDataImpl jobData = context.jobData();
+            lastContexts.put(Pair.of(jobData.contextClass(), jobData.id()), context );
+        }
         super.send(context);
     }
 
     @Override
     public void sendState(final JobDataImpl jobData, final ConsumerRecord r) {
-        lastConsumerRecordsUsedForState.put(Pair.of(jobData.contextClass(), jobData.id()), r );
-        stateCounts.get(jobData.state()).incrementAndGet();
-        jobStates.put(jobData.id(), jobData.state());
+        synchronized (lastConsumerRecordsUsedForState) {
+            lastConsumerRecordsUsedForState.put(Pair.of(jobData.contextClass(), jobData.id()), r );
+            stateCounts.get(jobData.state()).incrementAndGet();
+            jobStates.put(jobData.id(), jobData.state());
+        }
         super.sendState(jobData, r);
+    }
+
+    public void addStates(final TestSender currentTestsender) {
+        synchronized (lastContexts) {
+            currentTestsender.lastContexts.entrySet().forEach(
+                    e -> {
+                        if (!lastContexts.containsKey(e.getKey())) {
+                            lastContexts.put(e.getKey(), e.getValue());
+                        }
+                    }
+            );
+        }
+        synchronized (lastConsumerRecordsUsedForState) {
+            currentTestsender.lastConsumerRecordsUsedForState.entrySet().forEach(
+                    e -> {
+                        if (!lastConsumerRecordsUsedForState.containsKey(e.getKey())) {
+                            lastConsumerRecordsUsedForState.put(e.getKey(), e.getValue());
+                        }
+                    }
+            );
+            currentTestsender.stateCounts.entrySet().forEach(
+                    e -> {
+                        if (stateCounts.containsKey(e.getKey())) {
+                            stateCounts.get(e.getKey()).addAndGet(e.getValue().get());
+                        }
+                    }
+            );
+            currentTestsender.jobStates.entrySet().forEach(
+                    e -> {
+                        if (!jobStates.containsKey(e.getKey())) {
+                            jobStates.put(e.getKey(), e.getValue());
+                        }
+                    }
+            );
+        }
     }
 }

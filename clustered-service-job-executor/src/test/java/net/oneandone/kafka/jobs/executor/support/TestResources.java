@@ -1,6 +1,8 @@
 package net.oneandone.kafka.jobs.executor.support;
 
 import java.time.Clock;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.kafka.streams.integration.utils.EmbeddedKafkaCluster;
@@ -38,17 +40,17 @@ public class TestResources {
 
     public void startKafka() throws Exception {
         Properties brokerConfig = new Properties();
+
         brokerConfig.setProperty(KafkaConfig.ListenersProp(), "PLAINTEXT://localhost:0");
         cluster = new TestCluster(1, brokerConfig);
         cluster.start();
         getContainer().setBootstrapServers(cluster.bootstrapServers());
-
-        cluster.deleteTopicAndWait(getContainer().getSyncTopicName());
-        cluster.createTopic(getContainer().getSyncTopicName(), 1, 1);
+        Map<String, String> topicConfig = new HashMap<>();
+        topicConfig.put("retention.ms", Integer.toString(12 * 3600 * 1000));
         cluster.deleteTopicAndWait(getContainer().getJobDataTopicName());
-        cluster.createTopic(getContainer().getJobDataTopicName(), 2, 1);
+        cluster.createTopic(getContainer().getJobDataTopicName(), 2, 1, topicConfig);
         cluster.deleteTopicAndWait(getContainer().getJobStateTopicName());
-        cluster.createTopic(getContainer().getJobStateTopicName(), 2, 1);
+        cluster.createTopic(getContainer().getJobStateTopicName(), 2, 1, topicConfig);
     }
 
 

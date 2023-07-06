@@ -42,8 +42,12 @@ public class Reviver extends StoppableBase {
             statesToResurrect.stream().forEach(s -> {
                         logger.info("Reading job for state: {}", s);
                         TransportImpl jobData = beans.getReceiver().readJob(s);
-                        logger.info("Reviving: {}", jobData.jobData());
-                        beans.getSender().send(jobData);
+                        if (jobData != null) {
+                            logger.info("Reviving: {}", jobData.jobData());
+                            beans.getSender().send(jobData);
+                        } else {
+                            logger.error("No job found anymore for jobstate  {}",s);
+                        }
                     }
             );
             try {
