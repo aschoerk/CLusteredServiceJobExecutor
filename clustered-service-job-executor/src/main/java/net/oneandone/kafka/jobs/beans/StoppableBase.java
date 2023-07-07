@@ -88,11 +88,14 @@ class StoppableBase implements Stoppable {
     }
 
     protected void initThreadName(final String name) {
+        if (doShutDown()) {
+            logger.error("Initializing Threadname {} but doShutdown is true", name);
+        }
         String threadName = String.format("KCTM_%010d_%05d_%s_%7d",
                 Thread.currentThread().getContextClassLoader().hashCode(),
                 Thread.currentThread().getId(),
                 String.format("%-12s", name).substring(0, 12), threadIx.incrementAndGet());
         Thread.currentThread().setName(threadName);
-        logger.trace("Initialized Name of Thread with Id: {}", Thread.currentThread().getId());
+        logger.trace("Initialized Name {} of Thread with Id: {}", name, Thread.currentThread().getId());
     }
 }

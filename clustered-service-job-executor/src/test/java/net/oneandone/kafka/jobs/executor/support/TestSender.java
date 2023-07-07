@@ -25,7 +25,7 @@ public class TestSender extends Sender {
     @Override
     public <T> void send(final TransportImpl context) {
         final JobDataImpl jobData = context.jobData();
-        data.lastContexts.put(Pair.of(jobData.contextClass(), jobData.id()), context);
+        data.lastContexts.put(Pair.of(jobData.jobSignature(), jobData.id()), context);
         super.send(context);
     }
 

@@ -25,7 +25,7 @@ public interface Job<Context> extends JobInfo {
      * @return a string signifying matching jobs, if name might be the same, but the steps where changed.
      */
     default String signature() {
-        return name() + "|" + Arrays.stream(steps()).map(Step::name).collect(Collectors.joining("|"));
+        return name() + "|" + version() + "|" + Arrays.stream(steps()).map(Step::name).collect(Collectors.joining("|"));
     }
 
     default int stepNumber() { return steps().length; }

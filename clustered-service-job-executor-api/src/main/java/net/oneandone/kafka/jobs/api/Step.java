@@ -9,7 +9,7 @@ public interface Step<Context> {
      * A name of the step used to identify comparable steps
      * @return name of the step used to identify comparable steps
      */
-    default String name() { return this.getClass().getName(); }
+    default String name() { return this.getClass().getSimpleName(); }
 
     /**
      * the function to execute as part of the job

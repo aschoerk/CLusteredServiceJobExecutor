@@ -14,7 +14,7 @@
         <Logger name="net.oneandone.kafka" level="TRACE" additivity="false">
             <AppenderRef ref="InterceptingAppender"/>
         </Logger>
-        <Logger name="ApiTests" level="TRACE" additivity="false">
+        <Logger name="ApiTests" level="INFO" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
     </Loggers>

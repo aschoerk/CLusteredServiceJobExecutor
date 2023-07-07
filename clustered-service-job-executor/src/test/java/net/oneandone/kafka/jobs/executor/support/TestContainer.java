@@ -79,6 +79,15 @@ public class TestContainer implements Container {
                 return Duration.ofSeconds(1);
             }
 
+            @Override
+            public Duration getReviverPeriod() {
+                return Duration.ofSeconds(5);
+            }
+
+            @Override
+            public Duration getMaxDelayOfStateMessages() {
+                return Duration.ofSeconds(3);
+            }
         };
     }
 

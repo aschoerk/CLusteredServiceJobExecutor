@@ -1,12 +1,14 @@
 package net.oneandone.kafka.jobs.beans;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import net.oneandone.kafka.jobs.api.State;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
@@ -45,7 +47,10 @@ public class PendingHandler extends StoppableBase {
      * @param e the pendingEntry to be scheduled
      */
     public void schedulePending(final TransportImpl e) {
-        logger.info("Node: {} Scheduling JobData: {}", beans.getContainer().getConfiguration().getNodeName(), e);
+        logger.info("Node: {} Scheduling JobData: {} in {} milliseconds",
+                beans.getContainer().getConfiguration().getNodeName(),
+                e.jobData(),
+                Duration.between(Instant.now(),e.jobData().date()).toMillis());
         removePending(e.jobData().id(), false);
         pendingByIdentifier.put(e.jobData().id(), e);
         sortedPending.add(e);
@@ -74,7 +79,7 @@ public class PendingHandler extends StoppableBase {
     }
 
     public void run() {
-        initThreadName(this.getClass().getSimpleName());
+        initThreadName("PendingHandler");
         setRunning();
         try {
             while (!doShutDown()) {
@@ -160,6 +165,6 @@ public class PendingHandler extends StoppableBase {
         super.setShutDown();
         waitForThreads(pendingHandlerThread);
         waitForStoppables(this);
-        sortedPending.stream().forEach(p -> beans.getSender().send(p));
+        sortedPending.stream().collect(Collectors.toList()).forEach(p -> beans.getSender().send(p));
     }
 }
