@@ -15,9 +15,11 @@ public class TestBeansFactory extends BeansFactory {
 
     TestSender testSender = null;
 
+    TestSenderData testSenderData = new TestSenderData();
+
     @Override
     public Sender createSender(final Beans beans) {
-        testSender = new TestSender(beans);
+        testSender = new TestSender(beans, testSenderData);
         return testSender;
     }
 
@@ -26,7 +28,7 @@ public class TestBeansFactory extends BeansFactory {
         return new LinkedBlockingDeque<>(1000);
     }
 
-    public TestSender getTestSender() {
-        return testSender;
+    public TestSenderData getTestSenderData() {
+        return testSenderData;
     }
 }

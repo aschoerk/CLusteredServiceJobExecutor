@@ -76,7 +76,7 @@ public class ApiTests {
         TestJob jobTemplate = new TestJob();
         engine.register(jobTemplate, TestContext.class);
         Transport transport = engine.create(jobTemplate, new TestContext());
-        Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSender().lastContexts.entrySet();
+        Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
         while (contexts.size() == 0 || ((TestContext)contexts.iterator().next().getValue().getContext(TestContext.class)).getI() < 1) {
             Thread.sleep(200);
         }
@@ -137,18 +137,15 @@ public class ApiTests {
         final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
         Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
         engine.register(cdiTestJob, TestContext.class);
-        for (int i = 0; i < 500; i++) {
+        for (int i = 0; i < 10000; i++) {
             engine.create(cdiTestJob, new TestContext());
         }
         for (int i = 0; i < revivals; i++) {
-            Thread.sleep(2000);
-            TestSender currentTestsender = testBeansFactory.getTestSender();
+            Thread.sleep(3000);
             engine.stop();
             engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
             engine.register(cdiTestJob, TestContext.class);
             engine.create(cdiTestJob, new TestContext());
-            TestSender newTestsender = testBeansFactory.getTestSender();
-            newTestsender.addStates(currentTestsender);
         }
         waitForTest(testBeansFactory);
     }
@@ -157,8 +154,8 @@ public class ApiTests {
 
 
     private void waitForTest(final TestBeansFactory testBeansFactory) throws InterruptedException {
-        Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSender().lastContexts.entrySet();
-        Set<Map.Entry<String, State>> states = testBeansFactory.getTestSender().jobStates.entrySet();
+        Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
+        Set<Map.Entry<String, State>> states = testBeansFactory.getTestSenderData().jobStates.entrySet();
         logger.info("Waiting for {} jobs to complete", states.size());
         while (contexts.stream().anyMatch(c -> c.getValue().jobData().state() != DONE && c.getValue().jobData().state() != ERROR)
         || states.stream().anyMatch(c -> !(c.getValue().equals(DONE) || c.getValue().equals(ERROR)))) {
@@ -173,7 +170,7 @@ public class ApiTests {
     }
 
     private static void checkTests(final int expectedDone, final int expectedRunning, final int expectedDelayed, final int expectedSuspended, final int expectedError, final TestBeansFactory testBeansFactory) {
-        Map<State, AtomicInteger> stateCounts = testBeansFactory.getTestSender().stateCounts;
+        Map<State, AtomicInteger> stateCounts = testBeansFactory.getTestSenderData().stateCounts;
         Assertions.assertEquals(expectedDone, stateCounts.get(DONE).get());
         Assertions.assertEquals(expectedRunning, stateCounts.get(State.RUNNING).get());
         Assertions.assertEquals(expectedDelayed, stateCounts.get(State.DELAYED).get());
