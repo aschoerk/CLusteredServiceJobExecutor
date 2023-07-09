@@ -1,5 +1,7 @@
 package net.oneandone.kafka.jobs.beans;
 
+import static net.oneandone.kafka.jobs.api.State.DONE;
+import static net.oneandone.kafka.jobs.api.State.ERROR;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_OFFSET_RESET_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG;
@@ -9,6 +11,7 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_
 import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -24,7 +27,6 @@ import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
-import net.oneandone.kafka.jobs.dtos.CorrelationId;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
@@ -137,12 +139,58 @@ public class Receiver extends StoppableBase {
                     JobDataState jobDataState = JsonMarshaller.gson.fromJson(json, JobDataState.class);
                     beans.getJobDataStates().put(jobDataState.getId(), jobDataState);
                     if(jobDataState.getCorrelationId() != null) {
-                        CorrelationId correlationId = new CorrelationId(jobDataState.getCorrelationId(), jobDataState.getJobName());
-                        JobDataState existingJobDataState = beans.getJobDataCorrelationIds().get(correlationId);
+                        JobDataState existingJobDataState = beans.getJobDataCorrelationIds().get(jobDataState.getCorrelationId());
                         if(!existingJobDataState.getId().equals(jobDataState.getId())) {
-                            logger.error("different Jobs {}, {} with the same correlationId {}", jobDataState, existingJobDataState, correlationId);
+                            logger.error("different Jobs {}, {} with the same correlationId {}", jobDataState, existingJobDataState, jobDataState.getCorrelationId());
                         }
-                        beans.getJobDataCorrelationIds().put(correlationId, jobDataState);
+                        beans.getJobDataCorrelationIds().put(jobDataState.getCorrelationId(), jobDataState);
+                    }
+                    if(jobDataState.getGroupId() != null) {
+                        boolean add = jobDataState.getState() != DONE || jobDataState.getState() != ERROR;
+                        List<JobDataState> statesForThisGroup = beans.getStatesByGroup().get(jobDataState.getGroupId());
+
+                        if(statesForThisGroup == null) {
+                            if(add) {
+                                beans.getStatesByGroup().put(jobDataState.getGroupId(), Collections.singletonList(jobDataState));
+                            }
+                            else {
+                                logger.error("Normally should always add if there is no group entry yet (job should have been running once)");
+                            }
+                        }
+                        else {
+                            // TODO: *** reschedule left over if add is false.
+                            if(statesForThisGroup.contains(jobDataState)) {
+                                if(statesForThisGroup.size() == 1) {
+                                    if(add) {
+                                        beans.getStatesByGroup().put(jobDataState.getGroupId(), Collections.singletonList(jobDataState));
+                                    }
+                                    else {
+                                        beans.getStatesByGroup().remove(jobDataState.getGroupId());
+                                        // no reschedule, nothing there anymore
+                                    }
+                                }
+                                else {
+                                    statesForThisGroup.remove(jobDataState);
+                                    if(add) {
+                                        statesForThisGroup.add(jobDataState);
+                                    }
+                                    Optional<JobDataState> tostart = statesForThisGroup.stream().min((i, j) -> j.getCreatedAt().compareTo(i.getCreatedAt()));
+
+                                }
+                            }
+                            else {
+                                if(add) {
+                                    if(statesForThisGroup.size() == 1) {
+                                        ArrayList<JobDataState> entry = new ArrayList<>(statesForThisGroup);
+                                        entry.add(jobDataState);
+                                        beans.getStatesByGroup().put(jobDataState.getGroupId(), entry);
+                                    }
+                                    else {
+                                        statesForThisGroup.add(jobDataState);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -179,6 +227,7 @@ public class Receiver extends StoppableBase {
                         case ERROR:
                             break;
                     }
+
                 }
             }
         }

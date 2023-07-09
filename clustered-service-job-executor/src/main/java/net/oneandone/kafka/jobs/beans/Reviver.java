@@ -53,6 +53,7 @@ public class Reviver extends StoppableBase {
                             }
                             else {
                                 logger.error("No job found anymore for jobstate  {}", s);
+                                beans.getJobDataStates().remove(s.getId());
                             }
                         }
                 );

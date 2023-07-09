@@ -1,5 +1,7 @@
 package net.oneandone.kafka.jobs.beans;
 
+import static net.oneandone.kafka.jobs.api.State.GROUP;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -8,7 +10,6 @@ import net.oneandone.kafka.jobs.api.Job;
 import net.oneandone.kafka.jobs.api.KjeException;
 import net.oneandone.kafka.jobs.api.RemoteExecutor;
 import net.oneandone.kafka.jobs.api.Transport;
-import net.oneandone.kafka.jobs.dtos.CorrelationId;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
@@ -44,7 +45,17 @@ public class EngineImpl extends StoppableBase implements Engine {
     }
 
     @Override
+    public <T> Transport create(final Job<T> job, final String groupId, final T context) {
+        return create(job, groupId, context, null);
+    }
+
+    @Override
     public <T> Transport create(final Job<T> job, final T context, String correlationId) {
+        return create(job, null, context, correlationId);
+    }
+
+    @Override
+    public <T> Transport create(final Job<T> job, final String groupId, final T context, String correlationId) {
 
         JobImpl<T> jobImpl = beans.getJobs().get(job.signature());
 
@@ -53,17 +64,23 @@ public class EngineImpl extends StoppableBase implements Engine {
         }
 
         if(correlationId != null) {
-            CorrelationId correlationIdRec = new CorrelationId(correlationId, job.name());
-            JobDataState state = beans.getJobDataCorrelationIds().get(correlationIdRec);
+            JobDataState state = beans.getJobDataCorrelationIds().get(correlationId);
             if(state != null) {
                 TransportImpl existing = beans.getReceiver().readJob(state);
                 return existing;
             }
         }
 
-        JobDataImpl jobData = new JobDataImpl(jobImpl, (Class<T>) context.getClass(), correlationId, beans.getContainer());
+        JobDataImpl jobData = new JobDataImpl(jobImpl, (Class<T>) context.getClass(), correlationId, groupId, beans.getContainer());
 
-        beans.getJobTools().prepareJobDataForRunning(jobData);
+
+        if (jobData.groupId() != null) {
+            if(beans.getStatesByGroup().containsKey(jobData.groupId())) {
+                jobData.setState(GROUP);
+            }
+        } else {
+            beans.getJobTools().prepareJobDataForRunning(jobData);
+        }
 
         TransportImpl contextImpl = new TransportImpl(jobData, context, context.getClass(), beans);
 

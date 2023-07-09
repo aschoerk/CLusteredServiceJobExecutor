@@ -5,6 +5,8 @@ import static net.oneandone.kafka.jobs.api.State.DELAYED;
 import static net.oneandone.kafka.jobs.api.State.DONE;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -14,6 +16,7 @@ import net.oneandone.kafka.jobs.api.KjeException;
 import net.oneandone.kafka.jobs.api.Step;
 import net.oneandone.kafka.jobs.api.StepResult;
 import net.oneandone.kafka.jobs.api.exceptions.UnRecoverable;
+import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
@@ -72,12 +75,25 @@ public class Executor extends StoppableBase {
         return newStep >= 0 &&  newStep <= job.steps().length - 1;
     }
 
-    void stopJob(TransportImpl context) {
+    TransportImpl stopJob(TransportImpl context) {
         logger.info("Stopping {}", context.jobData());
         JobDataImpl jobData = context.jobData();
         logger.info("Stop Job({}): {}/{}", jobData.id(), beans.getJobs().get(jobData.jobSignature()).name(), jobData.step());
         jobData.setDate(beans.getContainer().getClock().instant());
         beans.getJobTools().changeStateTo(jobData, DONE);
+        if (jobData.groupId() != null) {
+            List<JobDataState> group = beans.getStatesByGroup().get(jobData.groupId());
+            if (group != null) {
+                Optional<JobDataState> nextOneState = group.stream()
+                        .filter(j -> j.getId() != jobData.id())
+                        .min((i, j) -> i.getCreatedAt().compareTo(j.getCreatedAt()));
+                if(nextOneState.isPresent()) {
+                    TransportImpl nextOne = beans.getReceiver().readJob(nextOneState.get());
+                    return nextOne;
+                }
+            }
+        }
+        return null;
     }
 
     void delayJob(TransportImpl context, String error) {
@@ -137,6 +153,7 @@ public class Executor extends StoppableBase {
                     throw new KjeException("Could not get Class: " + cne);
                 }
             }
+            TransportImpl nextOne = null;
             switch (result.getStepResultEnum()) {
                 case DONE:
                     if(thereIsANewStep(jobData, result.getStepIncrement())) {
@@ -146,13 +163,13 @@ public class Executor extends StoppableBase {
                     }
                     else {
                         beans.getMetricCounts().incDone();
-                        stopJob(element);
+                        nextOne = stopJob(element);
                         beans.getSender().send(element);
                     }
                     break;
                 case STOP:
                     beans.getMetricCounts().incStopped();
-                    stopJob(element);
+                    nextOne = stopJob(element);
                     beans.getSender().send(element);
                     break;
                 case DELAY:
@@ -165,6 +182,10 @@ public class Executor extends StoppableBase {
                     break;
                 default:
                     logger.error("Unsupported Step Result: ", result);
+            }
+            if (nextOne != null) {
+                beans.getJobTools().prepareJobDataForRunning(nextOne.jobData());
+                beans.getSender().send(nextOne);
             }
         } finally {
             beans.getContainer().stopThreadUsage();

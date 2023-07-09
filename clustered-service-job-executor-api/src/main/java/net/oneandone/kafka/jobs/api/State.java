@@ -33,7 +33,14 @@ public enum State {
      */
     WAITING,
     /**
-     * job cannot be executed on the node it encountered last, there is no binary capable to execute as .
+     * job cannot be executed on the node it encountered last, there is no binary capable to execute as and no remote node
+     * for calling available
      */
-    WRONG_NODE
+    WRONG_NODE,
+
+    /**
+     * job can not be started yet since earlier jobs of the same group are not completed yet.
+     */
+    GROUP
+
 }

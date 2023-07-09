@@ -1,10 +1,10 @@
 package net.oneandone.kafka.jobs.beans;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingDeque;
 
 import net.oneandone.kafka.jobs.api.Container;
-import net.oneandone.kafka.jobs.dtos.CorrelationId;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
@@ -31,12 +31,13 @@ public class Beans extends StoppableBase {
 
     private final Map<String, JobImpl> jobs;
 
-    private final Map<CorrelationId, JobDataState> jobDataCorrelationIds;
+    private final Map<String, JobDataState> jobDataCorrelationIds;
     private final JobTools jobTools;
 
     private final MetricCounts metricCounts;
     private final Reviver reviver;
     private RemoteExecutors remoteExecutors;
+    private Map<String, List<JobDataState>> statesByGroup;
 
     public Beans(Container container, BeansFactory beansFactory) {
         super(null);
@@ -55,11 +56,16 @@ public class Beans extends StoppableBase {
         this.metricCounts = beansFactory.createMetricCounts(this);
         this.remoteExecutors = beansFactory.createRemoteExecutors(this);
         this.reviver = beansFactory.createResurrection(this);
+        this.statesByGroup = beansFactory.creatStatesByGroup();
         setRunning();
     }
 
-    public Map<CorrelationId, JobDataState> getJobDataCorrelationIds() {
+    public Map<String, JobDataState> getJobDataCorrelationIds() {
         return jobDataCorrelationIds;
+    }
+
+    public Map<String, List<JobDataState>> getStatesByGroup() {
+        return statesByGroup;
     }
 
     public Container getContainer() {
@@ -90,10 +96,18 @@ public class Beans extends StoppableBase {
         return queue;
     }
 
+    /**
+     * registered jobs by signature
+     * @return the registered jobs by signature
+     */
     public Map<String, JobImpl> getJobs() {
         return jobs;
     }
 
+    /**
+     * the currently last state of all jobs as
+     * @return the currently last state of all jobs
+     */
     public Map<String, JobDataState> getJobDataStates() {
         return jobDataStates;
     }

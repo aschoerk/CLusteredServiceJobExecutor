@@ -42,11 +42,12 @@ public class JobDataImpl implements JobData {
     private RemarkImpl[] comments = null;
     private String groupId = null;
 
-    public <T> JobDataImpl(JobImpl<T> job, final Class<T> contextClass, String correlationId, Container container) {
+    public <T> JobDataImpl(JobImpl<T> job, final Class<T> contextClass, String correlationId, String groupId, Container container) {
         this(UUID.randomUUID().toString(), correlationId, State.RUNNING, job.signature(), 0, 0);
 
         this.contextClass = contextClass.getCanonicalName();
         this.createdAt = container.getClock().instant();
+        this.groupId = groupId;
     }
 
     public JobDataImpl(final String id, final String correlationId, final State state, final String signature,

@@ -88,9 +88,46 @@ public class ApiTests {
         engine.register(jobTemplate, TestContext.class);
         Transport transport = engine.create(jobTemplate, new TestContext());
         Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
-        while (contexts.size() == 0 || ((TestContext) contexts.iterator().next().getValue().getContext(TestContext.class)).getI() < 1) {
+        while ((contexts.size() == 0) || (contexts.iterator().next().getValue().getContext(TestContext.class).getI() < 1)) {
             Thread.sleep(200);
         }
+    }
+
+    @Test
+    void simpleGroupTest() throws InterruptedException {
+        final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
+        Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
+        engine.register(cdiTestJob, TestContext.class);
+        Transport transport = engine.create(cdiTestJob, "group", new TestContext("group"));
+        Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
+        while ((contexts.size() == 0) || (contexts.iterator().next().getValue().getContext(TestContext.class).getI() < 1)) {
+            Thread.sleep(200);
+        }
+    }
+
+    // @Test
+    void testStopKafka() throws Exception {
+        final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
+        Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
+        TestJob jobTemplate = new TestJob();
+        engine.register(jobTemplate, TestContext.class);
+        engine.create(jobTemplate, new TestContext());
+        Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
+        while ((contexts.size() == 0) || (contexts.iterator().next().getValue().getContext(TestContext.class).getI() < 1)) {
+            Thread.sleep(200);
+        }
+
+        testResources.getCluster().shutdown();
+        testResources.stopKafkaCluster();
+        testBeansFactory.getTestSenderData().lastContexts.clear();
+
+        testResources.startKafka();
+        engine.create(jobTemplate, new TestContext());
+        contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
+        while ((contexts.size() == 0) || (contexts.iterator().next().getValue().getContext(TestContext.class).getI() < 1)) {
+            Thread.sleep(200);
+        }
+
     }
 
     @Test
@@ -131,7 +168,7 @@ public class ApiTests {
         for (int i = 0; i < loops; i++) {
             engine.create(cdiTestJob, new TestContext());
         }
-        waitForTest(testBeansFactory, null, loops, null, null);
+        waitForTest(testBeansFactory, null, loops, null);
         checkTests(expectedDone, expectedRunning, expectedDelayed, expectedSuspended, expectedError, testBeansFactory);
 
         engine.stop();
@@ -162,18 +199,17 @@ public class ApiTests {
         }
         final Instant[] start = {Instant.now()};
         final int[] currentEngine = {0};
-        final int[] revivalCount = {0};
         final int[] createdCount = {0};
         for (int i = 0; i < jobnumber; i++) {
             engines[currentEngine[0]].create(cdiTestJob, new TestContext());
-            handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, revivalCount, createdCount);
+            handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, createdCount);
             Thread.sleep(creationTime / jobnumber);
             currentEngine[0] = (currentEngine[0] + 1) % engineNumber;
         }
         waitForTest(testBeansFactory, () -> {
-            handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, revivalCount, createdCount);
+            handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, createdCount);
             currentEngine[0] = (currentEngine[0] + 1) % engineNumber;
-        }, jobnumber, revivalCount, createdCount);
+        }, jobnumber, createdCount);
         Arrays.stream(engines).forEach(e -> e.stop());
         Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
         Assertions.assertEquals(jobnumber + createdCount[0], contexts.stream().filter(c -> c.getValue().jobData().state() == DONE).count());
@@ -185,7 +221,7 @@ public class ApiTests {
 
     private void handleRevival(final TestBeansFactory testBeansFactory,
                                final Engine[] engines, Instant[] start, final int currentEngine, int revivalAfter,
-                               final int[] revivalCount, final int[] createdCount) {
+                               final int[] createdCount) {
         if(Instant.now().isAfter(start[0].plus(Duration.ofMillis(revivalAfter)))) {
             engines[currentEngine].stop();
             engines[currentEngine] = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
@@ -193,18 +229,19 @@ public class ApiTests {
             engines[currentEngine].create(cdiTestJob, new TestContext());
             createdCount[0]++;
             start[0] = Instant.now();
-            revivalCount[0]++;
         }
     }
 
-    private void waitForTest(final TestBeansFactory testBeansFactory, Runnable doInLoop, int createdJobs, final int[] revivalCount, final int[] createdCount) throws InterruptedException {
+    private void waitForTest(final TestBeansFactory testBeansFactory, Runnable doInLoop, int createdJobs, final int[] createdCount) throws InterruptedException {
         Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
         Set<Map.Entry<String, State>> states = testBeansFactory.getTestSenderData().jobStates.entrySet();
         logger.info("Waiting for {} jobs to complete", states.size());
-        while (contexts.stream().anyMatch(c -> c.getValue().jobData().state() != DONE && c.getValue().jobData().state() != ERROR)
-               || states.stream().anyMatch(c -> !(c.getValue().equals(DONE) || c.getValue().equals(ERROR)))) {
+        while (contexts.stream().anyMatch(c -> (c.getValue().jobData().state() != DONE) && (c.getValue().jobData().state() != ERROR))
+               || states.stream().anyMatch(c -> !(c.getValue() == DONE || c.getValue() == ERROR))) {
             Thread.sleep(200);
-            doInLoop.run();
+            if(doInLoop != null) {
+                doInLoop.run();
+            }
             final long running = contexts.stream().filter(c -> c.getValue().jobData().state() == RUNNING).count();
             final long delayed = contexts.stream().filter(c -> c.getValue().jobData().state() == DELAYED).count();
             final long done = contexts.stream().filter(c -> c.getValue().jobData().state() == DONE).count();
@@ -221,7 +258,7 @@ public class ApiTests {
             logger.info("running: {} delayed: {} done: {} error: {} elapsedRunning: {} elapsedDelayed: {} revivableRunning: {} revivableDelayed: {}",
                     running, delayed, done, errors, elapsedRunning, elapsedDelayed, revivableRunning, revivableDelayed
             );
-            if(running + delayed + done + errors > createdJobs + (createdCount != null ? createdCount[0] : 0)) {
+            if((running + delayed + done + errors) > (createdJobs + ((createdCount != null) ? createdCount[0] : 0))) {
                 logger.error("Too many jobs");
                 testBeansFactory.getTestSenderData().lastContexts.keySet().stream().sorted()
                         .forEach(k -> logger.error("Context having key: {}", k));
