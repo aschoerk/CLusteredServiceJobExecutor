@@ -9,6 +9,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import net.oneandone.kafka.jobs.api.KjeException;
 import net.oneandone.kafka.jobs.api.Step;
 import net.oneandone.kafka.jobs.api.StepResult;
@@ -20,6 +23,10 @@ import net.oneandone.kafka.jobs.executor.cdi_scopes.CdbThreadScoped;
  */
 @CdbThreadScoped
 public class CDITestStep implements Step<TestContext> {
+
+    Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    public static AtomicInteger collisionsDetected = new AtomicInteger();
     /**
      * Instance variable to check if ThreadScoped is maintained despite encapsulation
      */
@@ -48,7 +55,8 @@ public class CDITestStep implements Step<TestContext> {
             }
             ApiTests.logger.info("Handle was called Threads: {} ", threads);
             if(!used.compareAndSet(false, true)) {
-                throw new KjeException("Collision in threadscoped Step");
+                collisionsDetected.incrementAndGet();
+                logger.error("Collision in entering threadscoped Step");
             }
             Thread.sleep(random.nextInt(10));
             context.i++;
@@ -62,7 +70,8 @@ public class CDITestStep implements Step<TestContext> {
         } finally {
             threadCount.decrementAndGet();
             if(!used.compareAndSet(true, false)) {
-                throw new KjeException("Collision in threadscoped Step");
+                collisionsDetected.incrementAndGet();
+                logger.error("Collision in exiting threadscoped Step");
             }
             if (context.groupId != null) {
                 handlingGroups.remove(context.groupId);

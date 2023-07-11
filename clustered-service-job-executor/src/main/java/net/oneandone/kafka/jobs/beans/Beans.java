@@ -1,7 +1,9 @@
 package net.oneandone.kafka.jobs.beans;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 
 import net.oneandone.kafka.jobs.api.Container;
@@ -37,7 +39,8 @@ public class Beans extends StoppableBase {
     private final MetricCounts metricCounts;
     private final Reviver reviver;
     private RemoteExecutors remoteExecutors;
-    private Map<String, List<JobDataState>> statesByGroup;
+    private Map<String, Collection<JobDataState>> statesByGroup;
+    private Set<String> jobsCreatedByThisNodeForGroup;
 
     public Beans(Container container, BeansFactory beansFactory) {
         super(null);
@@ -57,6 +60,7 @@ public class Beans extends StoppableBase {
         this.remoteExecutors = beansFactory.createRemoteExecutors(this);
         this.reviver = beansFactory.createResurrection(this);
         this.statesByGroup = beansFactory.creatStatesByGroup();
+        this.jobsCreatedByThisNodeForGroup = beansFactory.createJobsCreatedByThisNodeForGroup();
         setRunning();
     }
 
@@ -64,8 +68,12 @@ public class Beans extends StoppableBase {
         return jobDataCorrelationIds;
     }
 
-    public Map<String, List<JobDataState>> getStatesByGroup() {
+    public Map<String, Collection<JobDataState>> getStatesByGroup() {
         return statesByGroup;
+    }
+
+    public Set<String> getJobsCreatedByThisNodeForGroup() {
+        return jobsCreatedByThisNodeForGroup;
     }
 
     public Container getContainer() {

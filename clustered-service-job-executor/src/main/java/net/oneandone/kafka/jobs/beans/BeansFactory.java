@@ -1,7 +1,9 @@
 package net.oneandone.kafka.jobs.beans;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -60,7 +62,11 @@ public class BeansFactory {
 
     public Reviver createResurrection(final Beans beans) { return new Reviver(beans); }
 
-    public Map<String, List<JobDataState>> creatStatesByGroup() {
+    public Map<String, Collection<JobDataState>> creatStatesByGroup() {
         return new ConcurrentHashMap<>();
+    }
+
+    public Set<String> createJobsCreatedByThisNodeForGroup() {
+        return ConcurrentHashMap.newKeySet();
     }
 }

@@ -74,16 +74,15 @@ public class Sender extends StoppableBase {
 
         futures.removeIf(f -> f.isDone());
 
-        logger.info("Sending: {}", context.jobData());
         futures.add(getJobDataProducer().send(new ProducerRecord(beans.getContainer().getJobDataTopicName(), context.jobData().id(), toSend)));
     }
 
     public void sendState(JobDataImpl jobData, ConsumerRecord r) {
-        logger.info("Sending state {} ", jobData);
+        logger.info("Sending state for {} ", jobData);
 
         JobDataState jobDataState = new JobDataState(jobData.id(), jobData.state(),
-                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.stepCount());
-        logger.info("Sending: {}", jobDataState);
+                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.stepCount(), jobData.correlationId(), jobData.groupId(), null);
+        logger.info("Sending state record: {}", jobDataState);
         String toSend = JsonMarshaller.gson.toJson(jobDataState);
         futures.removeIf(f -> f.isDone());
         futures.add(getJobDataProducer().send(new ProducerRecord(beans.getContainer().getJobStateTopicName(), jobData.id(), toSend)));

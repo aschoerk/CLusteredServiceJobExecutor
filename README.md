@@ -10,9 +10,9 @@ Development steps:
 * test handling of SUSPENDED/Resume
 * implement partially Resume (more than one callback per suspend)
 * introduction of events
-* executor threadpool handling - poolgröße, shutdown, interrupt handling.
+* executor threadpool handling - poolsize, shutdown, interrupt handling.
 * Tests as Springboot-Version
-* Handling of lost broker connection
+* Handling of lost broker connection, broker restarts
 * Admin Interface
 * remove states from jobdatastates otherwise it will only grow
   * DONE states older than...

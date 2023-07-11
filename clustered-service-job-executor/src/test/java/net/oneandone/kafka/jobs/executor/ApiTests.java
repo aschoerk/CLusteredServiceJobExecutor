@@ -4,6 +4,7 @@ package net.oneandone.kafka.jobs.executor;
 import static net.oneandone.kafka.jobs.api.State.DELAYED;
 import static net.oneandone.kafka.jobs.api.State.DONE;
 import static net.oneandone.kafka.jobs.api.State.ERROR;
+import static net.oneandone.kafka.jobs.api.State.GROUP;
 import static net.oneandone.kafka.jobs.api.State.RUNNING;
 
 import java.time.Duration;
@@ -42,6 +43,7 @@ import net.oneandone.kafka.jobs.beans.LocalRemoteExecutor;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.executor.cdi_scopes.CdbThreadScopedExtension;
 import net.oneandone.kafka.jobs.executor.jobexamples.CDITestJob;
+import net.oneandone.kafka.jobs.executor.jobexamples.CDITestStep;
 import net.oneandone.kafka.jobs.executor.jobexamples.TestContext;
 import net.oneandone.kafka.jobs.executor.jobexamples.TestJob;
 import net.oneandone.kafka.jobs.executor.support.TestBeansFactory;
@@ -61,13 +63,18 @@ public class ApiTests {
     @Inject
     CDITestJob cdiTestJob;
 
-    private static void checkTests(final int expectedDone, final int expectedRunning, final int expectedDelayed, final int expectedSuspended, final int expectedError, final TestBeansFactory testBeansFactory) {
+    private static void checkTests(final int expectedDone, final int expectedRunning, final int expectedDelayed,
+                                   final int expectedSuspended, final int expectedError, final int expectedGroup,
+                                   final TestBeansFactory testBeansFactory) {
         Map<State, AtomicInteger> stateCounts = testBeansFactory.getTestSenderData().stateCounts;
-        Assertions.assertEquals(expectedDone, stateCounts.get(DONE).get());
-        Assertions.assertEquals(expectedRunning, stateCounts.get(State.RUNNING).get());
-        Assertions.assertEquals(expectedDelayed, stateCounts.get(State.DELAYED).get());
-        Assertions.assertEquals(expectedSuspended, stateCounts.get(State.SUSPENDED).get());
-        Assertions.assertEquals(expectedError, stateCounts.get(ERROR).get());
+        Assertions.assertEquals(expectedDone, stateCounts.get(DONE).get(),"done");
+        Assertions.assertEquals(expectedRunning, stateCounts.get(State.RUNNING).get(),"running");
+        Assertions.assertEquals(expectedDelayed, stateCounts.get(State.DELAYED).get(),"delayed");
+        Assertions.assertEquals(expectedSuspended, stateCounts.get(State.SUSPENDED).get(),"suspended");
+
+        Assertions.assertEquals(expectedError, stateCounts.get(ERROR).get(),"errors");
+        Assertions.assertEquals(expectedGroup, stateCounts.get(State.GROUP).get(),"groups");
+        Assertions.assertEquals(0, CDITestStep.collisionsDetected.get(),"collisions in threadscoped step");
     }
 
     @BeforeEach
@@ -147,29 +154,51 @@ public class ApiTests {
 
     @ParameterizedTest
     @CsvSource({
-            "true,1,1,2,0,0,0",
-            "false,2,2,4,0,0,0",
-            "false,3,3,7,1,0,0",
-            "false,4,4,9,1,0,0",
-            "false,5,5,12,2,0,0",
-            "false,10,10,24,4,0,0",
+//            "true,1,1,2,0,0,0,0,0",
+//            "false,2,2,4,0,0,0,0,0",
+//            "false,3,3,7,1,0,0,0,0",
+//            "false,4,4,9,1,0,0,0,0",
+//            "false,5,5,12,2,0,0,0,0",
+//            "false,10,10,24,4,0,0,0,0",
+//            // 200 / 5 = 40, 40 / 5 = 8, 8 / 5 = 1 -- 49 times delayed
+//            "true,100,100,249,49,0,0,0,0",
+//            "false,100,100,249,49,0,0,0,0",
+            "true,1,1,2,0,0,0,1,1",
+            "false,2,2,4,0,0,0,2,2",
+            "false,3,3,7,1,0,0,3,3",
+            "false,4,4,9,1,0,0,4,4",
+            "false,5,5,12,2,0,0,2,5",
+            "false,10,10,24,4,0,0,7,10",
+            "false,10,10,24,4,0,0,4,10",
             // 200 / 5 = 40, 40 / 5 = 8, 8 / 5 = 1 -- 49 times delayed
-            "true,100,100,249,49,0,0",
-            "false,100,100,249,49,0,0"
-    }
+            "true,100,100,249,49,0,0,3,100",
+            "true,100,100,249,49,0,0,30,100",
+            "true,100,100,249,49,0,0,10,100",
+            "false,100,100,249,49,0,0,20,100",
+            "false,100,100,249,49,0,0,5,100"    }
     )
-    void cdiTest(boolean doremote, int loops, int expectedDone, int expectedRunning, int expectedDelayed, int expectedSuspended, int expectedError) throws InterruptedException {
+    void cdiTest(boolean doremote, int loops, int expectedDone, int expectedRunning, int expectedDelayed,
+                 int expectedSuspended, int expectedError, int groupNo, int expectedGroup) throws InterruptedException {
         final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
         Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
+        String[] groups = new String[groupNo];
+        for (int i = 0; i < groupNo; i++) {
+            groups[i] = "group" + i;
+        }
         engine.register(cdiTestJob, TestContext.class);
         if(doremote) {
             engine.register(createRemoteTestExecutor(cdiTestJob));
         }
         for (int i = 0; i < loops; i++) {
-            engine.create(cdiTestJob, new TestContext());
+            Thread.sleep(10);
+            if (groupNo > 0) {
+                engine.create(cdiTestJob, groups[i % groupNo], new TestContext(groups[i % groupNo]));
+            } else {
+                engine.create(cdiTestJob, new TestContext());
+            }
         }
         waitForTest(testBeansFactory, null, loops, null);
-        checkTests(expectedDone, expectedRunning, expectedDelayed, expectedSuspended, expectedError, testBeansFactory);
+        checkTests(expectedDone, expectedRunning, expectedDelayed, expectedSuspended, expectedError, expectedGroup, testBeansFactory);
 
         engine.stop();
     }
@@ -243,6 +272,7 @@ public class ApiTests {
                 doInLoop.run();
             }
             final long running = contexts.stream().filter(c -> c.getValue().jobData().state() == RUNNING).count();
+            final long ingroup = contexts.stream().filter(c -> c.getValue().jobData().state() == GROUP).count();
             final long delayed = contexts.stream().filter(c -> c.getValue().jobData().state() == DELAYED).count();
             final long done = contexts.stream().filter(c -> c.getValue().jobData().state() == DONE).count();
             final long errors = contexts.stream().filter(c -> c.getValue().jobData().state() == ERROR).count();
@@ -255,8 +285,11 @@ public class ApiTests {
                     .filter(c -> c.getValue().jobData().date().plus(testResources.getContainer().getConfiguration().getMaxDelayOfStateMessages()).isBefore(Instant.now())).count();
             final long revivableDelayed = contexts.stream().filter(c -> c.getValue().jobData().state() == DELAYED)
                     .filter(c -> c.getValue().jobData().date().plus(testResources.getContainer().getConfiguration().getMaxDelayOfStateMessages()).isBefore(Instant.now())).count();
-            logger.info("running: {} delayed: {} done: {} error: {} elapsedRunning: {} elapsedDelayed: {} revivableRunning: {} revivableDelayed: {}",
-                    running, delayed, done, errors, elapsedRunning, elapsedDelayed, revivableRunning, revivableDelayed
+            Map<State, AtomicInteger> stateCounts = testBeansFactory.getTestSenderData().stateCounts;
+            logger.info("rn: {} dlyd: {} dn: {} er: {} grp: {} rnSnt: {} dlydSnt: {} grpSnt: {} elpsdR: {} elpsedDd: {} rvivR: {} rvivD: {} coll: {}",
+                    running, delayed, done, errors, ingroup, stateCounts.get(State.RUNNING).get(), stateCounts.get(State.DELAYED).get(),
+                    stateCounts.get(State.GROUP).get(),
+                    elapsedRunning, elapsedDelayed, revivableRunning, revivableDelayed, CDITestStep.collisionsDetected
             );
             if((running + delayed + done + errors) > (createdJobs + ((createdCount != null) ? createdCount[0] : 0))) {
                 logger.error("Too many jobs");

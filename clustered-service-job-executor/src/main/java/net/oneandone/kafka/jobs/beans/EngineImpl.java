@@ -75,8 +75,9 @@ public class EngineImpl extends StoppableBase implements Engine {
 
 
         if (jobData.groupId() != null) {
-            if(beans.getStatesByGroup().containsKey(jobData.groupId())) {
-                jobData.setState(GROUP);
+            jobData.setState(GROUP);
+            if(!beans.getStatesByGroup().containsKey(jobData.groupId())) {
+               beans.getJobsCreatedByThisNodeForGroup().add(jobData.id());
             }
         } else {
             beans.getJobTools().prepareJobDataForRunning(jobData);

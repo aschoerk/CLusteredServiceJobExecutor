@@ -189,12 +189,19 @@ public class JobDataImpl implements JobData {
     public String toString() {
         return "JobDataImpl{" +
                "id='" + id + '\'' +
+               ", jobSignature='" + jobSignature + '\'' +
+               ", createdAt=" + createdAt +
                ", state=" + state +
                ", step=" + step +
                ", stepCount=" + stepCount +
                ", retries=" + retries +
                ", date=" + date +
-               ", contextClass=" + contextClass +
+               ", contextClass='" + contextClass + '\'' +
+               ", resumeDataClass='" + resumeDataClass + '\'' +
+               ", correlationId='" + correlationId + '\'' +
+               ", errors=" + Arrays.toString(errors) +
+               ", comments=" + Arrays.toString(comments) +
+               ", groupId='" + groupId + '\'' +
                '}';
     }
 

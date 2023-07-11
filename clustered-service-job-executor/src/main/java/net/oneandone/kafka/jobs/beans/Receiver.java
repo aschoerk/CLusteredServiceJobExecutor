@@ -2,6 +2,8 @@ package net.oneandone.kafka.jobs.beans;
 
 import static net.oneandone.kafka.jobs.api.State.DONE;
 import static net.oneandone.kafka.jobs.api.State.ERROR;
+import static net.oneandone.kafka.jobs.api.State.GROUP;
+import static net.oneandone.kafka.jobs.api.State.RUNNING;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_OFFSET_RESET_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG;
@@ -12,11 +14,16 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZE
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -146,47 +153,62 @@ public class Receiver extends StoppableBase {
                         beans.getJobDataCorrelationIds().put(jobDataState.getCorrelationId(), jobDataState);
                     }
                     if(jobDataState.getGroupId() != null) {
-                        boolean add = jobDataState.getState() != DONE || jobDataState.getState() != ERROR;
-                        List<JobDataState> statesForThisGroup = beans.getStatesByGroup().get(jobDataState.getGroupId());
-
-                        if(statesForThisGroup == null) {
-                            if(add) {
-                                beans.getStatesByGroup().put(jobDataState.getGroupId(), Collections.singletonList(jobDataState));
-                            }
-                            else {
-                                logger.error("Normally should always add if there is no group entry yet (job should have been running once)");
-                            }
+                        Collection<JobDataState> existing = beans.getStatesByGroup().get(jobDataState.getGroupId());
+                        if(existing == null && jobDataState.getState() == GROUP && beans.getJobsCreatedByThisNodeForGroup().contains(jobDataState.getId())) {
+                            beans.getJobsCreatedByThisNodeForGroup().remove(jobDataState.getId());
+                            beans.getStatesByGroup().put(jobDataState.getGroupId(), Collections.singletonList(jobDataState));
+                            TransportImpl context = readJob(jobDataState);
+                            beans.getJobTools().prepareJobDataForRunning(context.jobData());
+                            beans.getSender().send(context);
                         }
                         else {
-                            // TODO: *** reschedule left over if add is false.
-                            if(statesForThisGroup.contains(jobDataState)) {
-                                if(statesForThisGroup.size() == 1) {
+                            boolean remove = jobDataState.getState() == DONE || jobDataState.getState() == ERROR;
+                            boolean add = jobDataState.getState() == GROUP;
+                            if(add || remove) {
+                                logger.info("Add {} or Remove {} Id: {} from Group: {}",add,remove,jobDataState.getId(),jobDataState.getGroupId());
+                                Collection<JobDataState> statesForThisGroup = beans.getStatesByGroup().get(jobDataState.getGroupId());
+
+                                if(statesForThisGroup == null) {
                                     if(add) {
                                         beans.getStatesByGroup().put(jobDataState.getGroupId(), Collections.singletonList(jobDataState));
                                     }
                                     else {
-                                        beans.getStatesByGroup().remove(jobDataState.getGroupId());
-                                        // no reschedule, nothing there anymore
+                                        logger.error("Normally should always add if there is no group entry");
+                                    }
+                                    if(remove) {
+                                        logger.error("Group handler supposed to find at least one entry");
                                     }
                                 }
                                 else {
-                                    statesForThisGroup.remove(jobDataState);
-                                    if(add) {
-                                        statesForThisGroup.add(jobDataState);
-                                    }
-                                    Optional<JobDataState> tostart = statesForThisGroup.stream().min((i, j) -> j.getCreatedAt().compareTo(i.getCreatedAt()));
-
-                                }
-                            }
-                            else {
-                                if(add) {
-                                    if(statesForThisGroup.size() == 1) {
-                                        ArrayList<JobDataState> entry = new ArrayList<>(statesForThisGroup);
-                                        entry.add(jobDataState);
-                                        beans.getStatesByGroup().put(jobDataState.getGroupId(), entry);
+                                    if(statesForThisGroup.contains(jobDataState)) {
+                                        if(add) {
+                                            logger.error("Group handler can not add a second time");
+                                        }
+                                        else {
+                                            if(remove) {
+                                                if(statesForThisGroup.size() == 1) {
+                                                    beans.getStatesByGroup().remove(jobDataState.getGroupId());
+                                                }
+                                                else {
+                                                    statesForThisGroup.remove(jobDataState);
+                                                }
+                                            }
+                                        }
                                     }
                                     else {
-                                        statesForThisGroup.add(jobDataState);
+                                        if(add) {
+                                            if(statesForThisGroup.size() == 1) {
+                                                Queue<JobDataState> entry = new ConcurrentLinkedQueue<>(statesForThisGroup);
+                                                entry.add(jobDataState);
+                                                beans.getStatesByGroup().put(jobDataState.getGroupId(), entry);
+                                            }
+                                            else {
+                                                statesForThisGroup.add(jobDataState);
+                                            }
+                                        }
+                                        else if(remove) {
+                                            logger.error("can not remove expected group entry");
+                                        }
                                     }
                                 }
                             }
@@ -203,7 +225,6 @@ public class Receiver extends StoppableBase {
             while (!doShutDown()) {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
                 for (ConsumerRecord<String, String> r : records) {
-
                     TransportImpl context = evaluatePackage(r);
 
                     beans.getSender().sendState(context.jobData(), r);
@@ -231,6 +252,23 @@ public class Receiver extends StoppableBase {
                 }
             }
         }
+    }
+
+    private boolean preventRunningWithGroup(final TransportImpl context) {
+        if(context.jobData().state() == RUNNING && context.jobData().groupId() != null) {
+            if(beans.getStatesByGroup().containsKey(context.jobData().groupId())) {
+                Collection<JobDataState> statesByGroup = beans.getStatesByGroup().get(context.jobData().groupId());
+                if(statesByGroup.size() > 0
+                   && !statesByGroup.stream().anyMatch(s -> s.getId().equals(context.jobData().id()))) {
+                    if(statesByGroup.stream().anyMatch(s -> s.getCreatedAt().isBefore(context.jobData().createdAt()))) {
+                        context.jobData().setState(GROUP);
+                        beans.getSender().send(context);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private TransportImpl evaluatePackage(final ConsumerRecord<String, String> r) {

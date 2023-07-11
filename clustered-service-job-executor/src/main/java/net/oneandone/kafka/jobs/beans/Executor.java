@@ -3,8 +3,10 @@ package net.oneandone.kafka.jobs.beans;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static net.oneandone.kafka.jobs.api.State.DELAYED;
 import static net.oneandone.kafka.jobs.api.State.DONE;
+import static net.oneandone.kafka.jobs.api.State.ERROR;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -82,24 +84,33 @@ public class Executor extends StoppableBase {
         jobData.setDate(beans.getContainer().getClock().instant());
         beans.getJobTools().changeStateTo(jobData, DONE);
         if (jobData.groupId() != null) {
-            List<JobDataState> group = beans.getStatesByGroup().get(jobData.groupId());
+            Collection<JobDataState> group = beans.getStatesByGroup().get(jobData.groupId());
             if (group != null) {
+                group.removeIf(j -> j.getId().equals(jobData.id()));
                 Optional<JobDataState> nextOneState = group.stream()
-                        .filter(j -> j.getId() != jobData.id())
+                        .filter(j -> !j.getId().equals(jobData.id()))
                         .min((i, j) -> i.getCreatedAt().compareTo(j.getCreatedAt()));
                 if(nextOneState.isPresent()) {
                     TransportImpl nextOne = beans.getReceiver().readJob(nextOneState.get());
                     return nextOne;
                 }
+            } else {
+                logger.error("Expected group entry to be found for done group-job");
             }
         }
         return null;
     }
 
+    void errorJob(TransportImpl context, String error) {
+        logger.error("Delaying cause: {} job: {}", error, context.jobData());
+        final JobDataImpl jobData = context.jobData();
+        jobData.addError(beans.getContainer().getClock().instant(), null, error);
+        beans.getJobTools().changeStateTo(jobData, ERROR);
+    }
+
     void delayJob(TransportImpl context, String error) {
         logger.info("Delaying cause: {} job: {}", error, context.jobData());
         final JobDataImpl jobData = context.jobData();
-        int currentStep = jobData.step();
         int retries = jobData.retries();
         final Configuration configuration = beans.getContainer().getConfiguration();
         if (retries < configuration.getMaxPhase1Tries() + configuration.getMaxPhase2Tries() ) {
@@ -178,6 +189,7 @@ public class Executor extends StoppableBase {
                     break;
                 case ERROR:
                     beans.getMetricCounts().incInError();
+                    errorJob(element, result.getError());
                     beans.getSender().send(element);
                     break;
                 default:
