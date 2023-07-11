@@ -13,16 +13,12 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_
 import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -156,7 +152,9 @@ public class Receiver extends StoppableBase {
                         Collection<JobDataState> existing = beans.getStatesByGroup().get(jobDataState.getGroupId());
                         if(existing == null && jobDataState.getState() == GROUP && beans.getJobsCreatedByThisNodeForGroup().contains(jobDataState.getId())) {
                             beans.getJobsCreatedByThisNodeForGroup().remove(jobDataState.getId());
-                            beans.getStatesByGroup().put(jobDataState.getGroupId(), Collections.singletonList(jobDataState));
+                            ConcurrentLinkedQueue<JobDataState> q = new ConcurrentLinkedQueue<>();
+                            q.add(jobDataState);
+                            beans.getStatesByGroup().put(jobDataState.getGroupId(), q);
                             TransportImpl context = readJob(jobDataState);
                             beans.getJobTools().prepareJobDataForRunning(context.jobData());
                             beans.getSender().send(context);
@@ -165,12 +163,14 @@ public class Receiver extends StoppableBase {
                             boolean remove = jobDataState.getState() == DONE || jobDataState.getState() == ERROR;
                             boolean add = jobDataState.getState() == GROUP;
                             if(add || remove) {
-                                logger.info("Add {} or Remove {} Id: {} from Group: {}",add,remove,jobDataState.getId(),jobDataState.getGroupId());
+                                logger.info("Add {} or Remove {} Id: {} from Group: {}", add, remove, jobDataState.getId(), jobDataState.getGroupId());
                                 Collection<JobDataState> statesForThisGroup = beans.getStatesByGroup().get(jobDataState.getGroupId());
 
                                 if(statesForThisGroup == null) {
                                     if(add) {
-                                        beans.getStatesByGroup().put(jobDataState.getGroupId(), Collections.singletonList(jobDataState));
+                                        ConcurrentLinkedQueue<JobDataState> q = new ConcurrentLinkedQueue<>();
+                                        q.add(jobDataState);
+                                        beans.getStatesByGroup().put(jobDataState.getGroupId(), q);
                                     }
                                     else {
                                         logger.error("Normally should always add if there is no group entry");
@@ -186,25 +186,13 @@ public class Receiver extends StoppableBase {
                                         }
                                         else {
                                             if(remove) {
-                                                if(statesForThisGroup.size() == 1) {
-                                                    beans.getStatesByGroup().remove(jobDataState.getGroupId());
-                                                }
-                                                else {
-                                                    statesForThisGroup.remove(jobDataState);
-                                                }
+                                                statesForThisGroup.remove(jobDataState);
                                             }
                                         }
                                     }
                                     else {
                                         if(add) {
-                                            if(statesForThisGroup.size() == 1) {
-                                                Queue<JobDataState> entry = new ConcurrentLinkedQueue<>(statesForThisGroup);
-                                                entry.add(jobDataState);
-                                                beans.getStatesByGroup().put(jobDataState.getGroupId(), entry);
-                                            }
-                                            else {
-                                                statesForThisGroup.add(jobDataState);
-                                            }
+                                            statesForThisGroup.add(jobDataState);
                                         }
                                         else if(remove) {
                                             logger.error("can not remove expected group entry");

@@ -85,7 +85,7 @@ public class Executor extends StoppableBase {
         beans.getJobTools().changeStateTo(jobData, DONE);
         if (jobData.groupId() != null) {
             Collection<JobDataState> group = beans.getStatesByGroup().get(jobData.groupId());
-            if (group != null) {
+            if (group != null && group.size() > 0) {
                 group.removeIf(j -> j.getId().equals(jobData.id()));
                 Optional<JobDataState> nextOneState = group.stream()
                         .filter(j -> !j.getId().equals(jobData.id()))
