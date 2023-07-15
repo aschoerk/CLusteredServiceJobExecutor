@@ -52,4 +52,7 @@ public interface Configuration {
      */
     default Duration getReviverPeriod() { return Duration.ofMillis(20000); }
 
+    default Duration getMaxTimeToWaitForOtherPartitions() {
+        return Duration.ofMillis(5000);
+    }
 }

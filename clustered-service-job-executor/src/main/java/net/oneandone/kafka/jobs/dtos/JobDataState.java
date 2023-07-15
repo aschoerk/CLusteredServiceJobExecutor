@@ -32,7 +32,7 @@ public class JobDataState {
     /**
      * generated each time a step-execution has been started.
      */
-    private final int stepCount;
+    private final int step;
     /**
      * dependent on the state:
      * DELAYED: the expected timestamp when the job should get rescheduled
@@ -53,8 +53,11 @@ public class JobDataState {
      */
     private final long offset;
 
+    private Instant sent;
+    private String sender;
+
     public JobDataState(final String id, final State state, final int partition, final long offset, final Instant date,
-                        final Instant createdAt, final int stepCount, final String correlationId, final String groupId,
+                        final Instant createdAt, final int step, final String correlationId, final String groupId,
                         final String jobName) {
         this.id = id;
         this.state = state;
@@ -62,14 +65,15 @@ public class JobDataState {
         this.createdAt = createdAt;
         this.partition = partition;
         this.offset = offset;
-        this.stepCount = stepCount;
+        this.step = step;
         this.correlationId = correlationId;
         this.groupId = groupId;
         this.jobName = jobName;
     }
+
     public JobDataState(final String id, final State state, final int partition, final long offset, final Instant date,
-                        final Instant createdAt, final int stepCount) {
-        this(id,state,partition, offset, date, createdAt, stepCount, null, null, null);
+                        final Instant createdAt, final int step) {
+        this(id, state, partition, offset, date, createdAt, step, null, null, null);
     }
 
     public String getJobName() {
@@ -92,8 +96,8 @@ public class JobDataState {
         return date;
     }
 
-    public int getStepCount() {
-        return stepCount;
+    public int getStep() {
+        return step;
     }
 
     public int getPartition() {
@@ -110,6 +114,14 @@ public class JobDataState {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getSent() {
+        return sent;
+    }
+
+    public void setSent(final Instant sent) {
+        this.sent = sent;
     }
 
     @Override
@@ -133,15 +145,25 @@ public class JobDataState {
     public String toString() {
         return "JobDataState{" +
                "correlationId='" + correlationId + '\'' +
-               ", groupId='" + groupId + '\'' +
-               ", jobName='" + jobName + '\'' +
                ", id='" + id + '\'' +
+               ", sent=" + sent +
                ", state=" + state +
-               ", stepCount=" + stepCount +
+               ", step=" + step +
                ", date=" + date +
+               ", groupId='" + groupId + '\'' +
+               ", sender='" + sender + '\'' +
                ", createdAt=" + createdAt +
                ", partition=" + partition +
                ", offset=" + offset +
+               ", jobName='" + jobName + '\'' +
                '}';
+    }
+
+    public String getSender() {
+        return sender;
+    }
+
+    public void setSender(final String nodeName) {
+        this.sender = nodeName;
     }
 }

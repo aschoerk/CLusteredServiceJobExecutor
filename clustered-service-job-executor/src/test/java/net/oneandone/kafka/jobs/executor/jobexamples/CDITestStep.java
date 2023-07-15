@@ -1,7 +1,7 @@
 package net.oneandone.kafka.jobs.executor.jobexamples;
 
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.oneandone.kafka.jobs.api.KjeException;
 import net.oneandone.kafka.jobs.api.Step;
 import net.oneandone.kafka.jobs.api.StepResult;
 import net.oneandone.kafka.jobs.executor.ApiTests;
@@ -32,31 +31,32 @@ public class CDITestStep implements Step<TestContext> {
      */
     AtomicBoolean used = new AtomicBoolean(false);
 
-    static AtomicInteger threadCount = new AtomicInteger(0);
+    static AtomicInteger staticThreadCount = new AtomicInteger(0);
 
     static AtomicLong callCount = new AtomicLong(0L);
 
-    static Set<String> handlingGroups =  Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
-
+    static Map<String, String> handlingGroups = new ConcurrentHashMap<>();
 
     Random random = new Random();
 
     @Override
     public StepResult handle(final TestContext context) {
-        int threads = threadCount.incrementAndGet();
+        int threads = staticThreadCount.incrementAndGet();
         try {
             Thread.sleep(random.nextInt(10));
-            if (context.groupId != null) {
-                if (handlingGroups.contains(context.groupId)) {
-                    return StepResult.ERROR;
-                } else {
-                    handlingGroups.add(context.getGroupId());
-                }
-            }
-            ApiTests.logger.info("Handle was called Threads: {} ", threads);
+            ApiTests.logger.trace("Handle was called Threads: {} ", threads);
             if(!used.compareAndSet(false, true)) {
                 collisionsDetected.incrementAndGet();
                 logger.error("Collision in entering threadscoped Step");
+            }
+            if (context.groupId != null) {
+                if (handlingGroups.containsKey(context.groupId)) {
+                    final String threadName = handlingGroups.get(context.groupId);
+                    logger.error("Group {} already handled by Thread:  {}", context.groupId,threadName);
+                    return StepResult.errorResult(threadName);
+                } else {
+                    handlingGroups.put(context.getGroupId(), Thread.currentThread().getName());
+                }
             }
             Thread.sleep(random.nextInt(10));
             context.i++;
@@ -68,14 +68,18 @@ public class CDITestStep implements Step<TestContext> {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
-            threadCount.decrementAndGet();
+            staticThreadCount.decrementAndGet();
             if(!used.compareAndSet(true, false)) {
                 collisionsDetected.incrementAndGet();
                 logger.error("Collision in exiting threadscoped Step");
             }
             if (context.groupId != null) {
-                handlingGroups.remove(context.groupId);
+                String res = handlingGroups.remove(context.groupId);
+                if (!res.equals(Thread.currentThread().getName())) {
+                    logger.error("Group Entry changed meanwhile to {}",res);
+                }
             }
+            ApiTests.logger.trace("Handle was ready  Threads: {} ", threads);
         }
 
     }

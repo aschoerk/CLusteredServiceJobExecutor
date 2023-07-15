@@ -6,7 +6,14 @@ Development steps:
 
 
 
-* more group tests, implement reviving of groups
+* more group tests, implement reviving of groups, 
+  * currently groups starter ignores probably older state-records for a group on other partitions
+  * if job is done yet it is possible that GROUP-State has not arrived yet at the processing engine. 
+    * Housekeeping of group-state therefore is only possible by handling the DONE-State
+    * But then the completed job can not select the next from the same group to be started. so 
+      * the group-record must be awaited
+      * other partitions possibly containing group records must be queried first.
+      * <-- accept states in separate threads from different partitions? states come in correct order in one partition, but sync between partition is necessary.
 * test handling of SUSPENDED/Resume
 * implement partially Resume (more than one callback per suspend)
 * introduction of events

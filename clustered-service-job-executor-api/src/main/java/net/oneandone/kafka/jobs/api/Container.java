@@ -1,6 +1,8 @@
 package net.oneandone.kafka.jobs.api;
 
 import java.time.Clock;
+import java.util.concurrent.Future;
+import java.util.function.Supplier;
 
 import net.oneandone.kafka.jobs.api.events.Event;
 
@@ -41,6 +43,8 @@ public interface Container {
      * @return the thread created in the container environment
      */
     Thread createThread(Runnable runnable);
+
+    Future<?> submitInThread(Runnable runnable);
 
     /**
      * signal the beginning of a threadusage.
@@ -87,6 +91,8 @@ public interface Container {
      * @return the containers interface for (user)transaction handling
      */
     Transaction getTransaction();
+
+    Supplier<String> getIdCreator();
 
     /**
      * fire an Event

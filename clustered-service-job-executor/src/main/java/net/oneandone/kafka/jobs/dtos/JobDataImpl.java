@@ -43,7 +43,8 @@ public class JobDataImpl implements JobData {
     private String groupId = null;
 
     public <T> JobDataImpl(JobImpl<T> job, final Class<T> contextClass, String correlationId, String groupId, Container container) {
-        this(UUID.randomUUID().toString(), correlationId, State.RUNNING, job.signature(), 0, 0);
+        this(job.getIdCreator() != null ? job.getIdCreator().get() : UUID.randomUUID().toString(),
+                correlationId, State.RUNNING, job.signature(), 0, 0);
 
         this.contextClass = contextClass.getCanonicalName();
         this.createdAt = container.getClock().instant();
@@ -189,19 +190,19 @@ public class JobDataImpl implements JobData {
     public String toString() {
         return "JobDataImpl{" +
                "id='" + id + '\'' +
-               ", jobSignature='" + jobSignature + '\'' +
-               ", createdAt=" + createdAt +
                ", state=" + state +
                ", step=" + step +
-               ", stepCount=" + stepCount +
                ", retries=" + retries +
                ", date=" + date +
+               ", groupId='" + groupId + '\'' +
+               ", jobSignature='" + jobSignature + '\'' +
+               ", createdAt=" + createdAt +
+               ", stepCount=" + stepCount +
                ", contextClass='" + contextClass + '\'' +
                ", resumeDataClass='" + resumeDataClass + '\'' +
                ", correlationId='" + correlationId + '\'' +
                ", errors=" + Arrays.toString(errors) +
                ", comments=" + Arrays.toString(comments) +
-               ", groupId='" + groupId + '\'' +
                '}';
     }
 

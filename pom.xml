@@ -41,6 +41,7 @@
         <gson.version>2.10.1</gson.version>
         <kafka.version>3.4.0</kafka.version>
         <scala.version>2.13</scala.version>
+        <kafka-clustered-task-scheduler.version>0.0.5</kafka-clustered-task-scheduler.version>
 
         <!-- test -->
         <mockito.version>5.3.0</mockito.version>
@@ -103,6 +104,11 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
                 <version>${commons-lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.oneandone.kafka-clustered-task-scheduler</groupId>
+                <artifactId>kafka-clustered-task-scheduler</artifactId>
+                <version>${kafka-clustered-task-scheduler.version}</version>
             </dependency>
 
             <!-- external -->

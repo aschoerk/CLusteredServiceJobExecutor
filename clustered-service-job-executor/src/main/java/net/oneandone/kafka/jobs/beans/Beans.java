@@ -1,10 +1,10 @@
 package net.oneandone.kafka.jobs.beans;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import net.oneandone.kafka.jobs.api.Container;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
@@ -15,6 +15,10 @@ import net.oneandone.kafka.jobs.implementations.JobImpl;
  * @author aschoerk
  */
 public class Beans extends StoppableBase {
+
+    static AtomicInteger beanCounter = new AtomicInteger(0);
+
+    int count;
 
     private final Container container;
     private final EngineImpl engine;
@@ -39,12 +43,13 @@ public class Beans extends StoppableBase {
     private final MetricCounts metricCounts;
     private final Reviver reviver;
     private RemoteExecutors remoteExecutors;
-    private Map<String, Collection<JobDataState>> statesByGroup;
+    private Map<String, Queue<JobDataState>> statesByGroup;
     private Set<String> jobsCreatedByThisNodeForGroup;
 
     public Beans(Container container, BeansFactory beansFactory) {
         super(null);
         this.container = container;
+        this.count = beanCounter.incrementAndGet();
 
         jobs = beansFactory.createJobsMap();
         queue = beansFactory.createQueue();
@@ -68,11 +73,11 @@ public class Beans extends StoppableBase {
         return jobDataCorrelationIds;
     }
 
-    public Map<String, Collection<JobDataState>> getStatesByGroup() {
+    public Map<String, Queue<JobDataState>> getStatesByGroup() {
         return statesByGroup;
     }
 
-    public Set<String> getJobsCreatedByThisNodeForGroup() {
+    public Set<String> getGroupJobsResponsibleFor() {
         return jobsCreatedByThisNodeForGroup;
     }
 
@@ -130,6 +135,9 @@ public class Beans extends StoppableBase {
 
     public RemoteExecutors getRemoteExecutors() { return remoteExecutors; }
 
+    public int getCount() {
+        return count;
+    }
 
     @Override
     public void setShutDown() {
@@ -154,7 +162,7 @@ public class Beans extends StoppableBase {
         this.stopStoppables(engine, jobTools, sender, metricCounts, remoteExecutors);
     }
 
-    public Reviver getResurrection() {
+    public Reviver getReviver() {
         return reviver;
     }
 }

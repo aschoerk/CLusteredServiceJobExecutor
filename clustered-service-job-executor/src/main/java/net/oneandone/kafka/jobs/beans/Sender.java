@@ -54,7 +54,7 @@ public class Sender extends StoppableBase {
 
     public <T> void send(TransportImpl context) {
 
-        logger.info("Sending {} ", context.jobData());
+        logger.info("Beans: {} Sending {} ", beans.getCount(), context.jobData());
         String jobDataJson = JsonMarshaller.gson.toJson(context.jobData());
 
         String contextJson = context.context();
@@ -78,13 +78,15 @@ public class Sender extends StoppableBase {
     }
 
     public void sendState(JobDataImpl jobData, ConsumerRecord r) {
-        logger.info("Sending state for {} ", jobData);
+        logger.info("Beans: {} Sending state for {} ", beans.getCount(), jobData);
 
-        JobDataState jobDataState = new JobDataState(jobData.id(), jobData.state(),
-                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.stepCount(), jobData.correlationId(), jobData.groupId(), null);
-        logger.info("Sending state record: {}", jobDataState);
-        String toSend = JsonMarshaller.gson.toJson(jobDataState);
         futures.removeIf(f -> f.isDone());
+        JobDataState jobDataState = new JobDataState(jobData.id(), jobData.state(),
+                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.step(), jobData.correlationId(), jobData.groupId(), null);
+        logger.info("Beans: {} Sending state record: {}", beans.getCount(), jobDataState);
+        jobDataState.setSent(beans.getContainer().getClock().instant());
+        jobDataState.setSender(beans.getContainer().getConfiguration().getNodeName());
+        String toSend = JsonMarshaller.gson.toJson(jobDataState);
         futures.add(getJobDataProducer().send(new ProducerRecord(beans.getContainer().getJobStateTopicName(), jobData.id(), toSend)));
     }
 

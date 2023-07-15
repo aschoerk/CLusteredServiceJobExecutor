@@ -2,9 +2,6 @@ package net.oneandone.kafka.jobs.beans;
 
 import static net.oneandone.kafka.jobs.api.State.GROUP;
 
-import java.util.Map;
-import java.util.Set;
-
 import net.oneandone.kafka.jobs.api.Engine;
 import net.oneandone.kafka.jobs.api.Job;
 import net.oneandone.kafka.jobs.api.KjeException;
@@ -31,7 +28,7 @@ public class EngineImpl extends StoppableBase implements Engine {
 
     @Override
     public <T> void register(final Job<T> job, Class<T> clazz) {
-        JobImpl<T> result = new JobImpl<>(job, clazz);
+        JobImpl<T> result = new JobImpl<>(job, clazz, beans);
         beans.getJobs().put(result.signature(), result);
     }
 
@@ -73,11 +70,10 @@ public class EngineImpl extends StoppableBase implements Engine {
 
         JobDataImpl jobData = new JobDataImpl(jobImpl, (Class<T>) context.getClass(), correlationId, groupId, beans.getContainer());
 
-
         if (jobData.groupId() != null) {
             jobData.setState(GROUP);
             if(!beans.getStatesByGroup().containsKey(jobData.groupId())) {
-               beans.getJobsCreatedByThisNodeForGroup().add(jobData.id());
+               beans.getGroupJobsResponsibleFor().add(jobData.id());
             }
         } else {
             beans.getJobTools().prepareJobDataForRunning(jobData);
