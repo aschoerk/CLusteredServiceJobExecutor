@@ -25,7 +25,7 @@ public class CdbThreadScopedContext {
      * @return true if CdbThreadScope is active for the current thread
      */
     public boolean isActive() {
-        return cdbThreadScopedExtension != null && cdbThreadScopedExtension.getCdbThreadScopedContextHolder().isReallyActive();
+        return (cdbThreadScopedExtension != null) && cdbThreadScopedExtension.getCdbThreadScopedContextHolder().isReallyActive();
     }
 
     /**

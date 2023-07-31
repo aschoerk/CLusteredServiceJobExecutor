@@ -2,7 +2,6 @@ package net.oneandone.kafka.jobs.beans;
 
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Future;
@@ -23,7 +22,7 @@ import net.oneandone.kafka.jobs.tools.JsonMarshaller;
 /**
  * @author aschoerk
  */
-public class Sender extends StoppableBase {
+public class JobsSender extends StoppableBase {
 
     static final String SEPARATOR = "\n|||SEPARATOR|||\n";
     static final String SEPARATORREGEX = "\n\\|\\|\\|SEPARATOR\\|\\|\\|\n";
@@ -32,9 +31,9 @@ public class Sender extends StoppableBase {
 
     private KafkaProducer jobDataProducer;
 
-    private Deque<Future<RecordMetadata>> futures = new ConcurrentLinkedDeque<>();
+    private final Deque<Future<RecordMetadata>> futures = new ConcurrentLinkedDeque<>();
 
-    protected Sender(Beans beans) {
+    protected JobsSender(Beans beans) {
         super(beans);
         this.config = new HashMap<>();
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, beans.getContainer().getBootstrapServers());
@@ -85,7 +84,7 @@ public class Sender extends StoppableBase {
                 r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.step(), jobData.correlationId(), jobData.groupId(), null);
         logger.info("Beans: {} Sending state record: {}", beans.getCount(), jobDataState);
         jobDataState.setSent(beans.getContainer().getClock().instant());
-        jobDataState.setSender(beans.getContainer().getConfiguration().getNodeName());
+        jobDataState.setSender(beans.getNode().getUniqueNodeId());
         String toSend = JsonMarshaller.gson.toJson(jobDataState);
         futures.add(getJobDataProducer().send(new ProducerRecord(beans.getContainer().getJobStateTopicName(), jobData.id(), toSend)));
     }

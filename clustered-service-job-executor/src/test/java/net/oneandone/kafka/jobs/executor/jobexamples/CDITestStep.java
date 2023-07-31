@@ -39,6 +39,8 @@ public class CDITestStep implements Step<TestContext> {
 
     Random random = new Random();
 
+    public static int successesInSequence = 4;
+
     @Override
     public StepResult handle(final TestContext context) {
         int threads = staticThreadCount.incrementAndGet();
@@ -60,8 +62,8 @@ public class CDITestStep implements Step<TestContext> {
             }
             Thread.sleep(random.nextInt(10));
             context.i++;
-            if (callCount.incrementAndGet() % 5 == 0) {
-                return StepResult.DELAY.error("repeat every 5 calls please");
+            if ((successesInSequence != 0) && ((callCount.incrementAndGet() % (successesInSequence + 1)) == 0)) {
+                return StepResult.DELAY.error("repeat every "+ successesInSequence + " calls please");
             } else {
                 return StepResult.DONE;
             }

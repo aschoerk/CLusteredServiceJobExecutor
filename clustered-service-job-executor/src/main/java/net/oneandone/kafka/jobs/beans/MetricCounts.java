@@ -16,7 +16,7 @@ public class MetricCounts extends StoppableBase {
     }
 
     public static final String CDBJOBS_METRIC_UNIT = "cdbjobs";
-    private final AtomicLong running = new AtomicLong(0);
+    private final AtomicLong runningJobs = new AtomicLong(0);
     private final AtomicLong startup = new AtomicLong(System.currentTimeMillis());
     private final AtomicLong stopped = new AtomicLong(0);
     private final AtomicLong createdBatches = new AtomicLong(0);
@@ -34,7 +34,7 @@ public class MetricCounts extends StoppableBase {
     private final AtomicLong wokenUpWaiting = new AtomicLong();
     private final List<Integer> batchSizes = new ArrayList<>();
 
-    private Map<State, Long> jobCountsPerState = new ConcurrentHashMap<>();
+    private final Map<State, Long> jobCountsPerState = new ConcurrentHashMap<>();
 
     public Map<State, Long> getJobCountsPerState() {
         return jobCountsPerState;
@@ -42,7 +42,7 @@ public class MetricCounts extends StoppableBase {
 
     private Long getCountForState(final State state) {
         final Long res = jobCountsPerState.get(state);
-        return res != null ? res : 0L;
+        return (res != null) ? res : 0L;
     }
 
     public void addBatchSize(int batchSize) {
@@ -55,11 +55,11 @@ public class MetricCounts extends StoppableBase {
      * number of currently running jobs
      */
     public Long incRunning(int by) {
-        return running.addAndGet(by);
+        return runningJobs.addAndGet(by);
     }
 
     public Long decRunning(int by) {
-        return running.addAndGet(-by);
+        return runningJobs.addAndGet(-by);
     }
 
     /**
@@ -127,19 +127,19 @@ public class MetricCounts extends StoppableBase {
     }
 
     public void addDelayedFromQueue(int toAdd) {
-        delayedFromQueue.addAndGet((long) toAdd);
+        delayedFromQueue.addAndGet(toAdd);
     }
 
     public void addStateChangeDelay(int toAdd) {
-        stateChangeDelay.addAndGet((long) toAdd);
+        stateChangeDelay.addAndGet(toAdd);
     }
 
     public void addStateChangeWaiting(int toAdd) {
-        stateChangeWaiting.addAndGet((long) toAdd);
+        stateChangeWaiting.addAndGet(toAdd);
     }
 
     public void addStateChangeError(int toAdd) {
-        stateChangeError.addAndGet((long) toAdd);
+        stateChangeError.addAndGet(toAdd);
     }
 
     public void incSuspended() {

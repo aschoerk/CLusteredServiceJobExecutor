@@ -1,6 +1,7 @@
 package net.oneandone.kafka.jobs.executor;
 
 
+import static java.lang.Math.random;
 import static net.oneandone.kafka.jobs.api.State.DELAYED;
 import static net.oneandone.kafka.jobs.api.State.DONE;
 import static net.oneandone.kafka.jobs.api.State.ERROR;
@@ -94,7 +95,7 @@ public class ApiTests {
     void test() throws InterruptedException {
         final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
         Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
-        TestJob jobTemplate = new TestJob();
+        TestJob jobTemplate = new TestJob(engine);
         engine.register(jobTemplate, TestContext.class);
         Transport transport = engine.create(jobTemplate, new TestContext());
         Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
@@ -119,7 +120,7 @@ public class ApiTests {
     void testStopKafka() throws Exception {
         final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
         Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
-        TestJob jobTemplate = new TestJob();
+        TestJob jobTemplate = new TestJob(engine);
         engine.register(jobTemplate, TestContext.class);
         engine.create(jobTemplate, new TestContext());
         Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
@@ -144,7 +145,7 @@ public class ApiTests {
     void jobsTest() {
         final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
         Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
-        TestJob jobTemplate = new TestJob();
+        TestJob jobTemplate = new TestJob(engine);
     }
 
     RemoteExecutor createRemoteTestExecutor(Job job) {
@@ -157,31 +158,38 @@ public class ApiTests {
 
     @ParameterizedTest
     @CsvSource({
-            "true,1,1,2,0,0,0,1,1",
-            "false,2,2,4,0,0,0,2,2",
-            "false,3,3,7,1,0,0,3,3",
-            "false,4,4,9,1,0,0,4,4",
-            "false,5,5,12,2,0,0,2,5",
-            "true,1,1,2,0,0,0,0,0",
-            "false,2,2,4,0,0,0,0,0",
-            "false,3,3,7,1,0,0,0,0",
-            "false,4,4,9,1,0,0,0,0",
-            "false,5,5,12,2,0,0,0,0",
-            "false,10,10,24,4,0,0,0,0",
+            "false,10000,10000,20000,0,0,0,0,0,0",
+            "false,1,1,2,0,0,0,0,0,0",
+            "false,2,2,4,0,0,0,0,0,0",
+
+            "false,1000,1000,2000,0,0,0,0,0,0",
+            "true,1,1,2,0,0,0,0,0,2",
+            "true,1,1,2,0,0,0,1,1,4",
+            "false,2,2,4,0,0,0,2,2,4",
+            "false,3,3,7,1,0,0,3,3,4",
+            "false,4,4,9,1,0,0,4,4,4",
+            "false,5,5,12,2,0,0,2,5,4",
+            "true,1,1,2,0,0,0,0,0,4",
+            "false,2,2,4,0,0,0,0,0,4",
+            "false,3,3,7,1,0,0,0,0,4",
+            "false,4,4,9,1,0,0,0,0,4",
+            "false,5,5,12,2,0,0,0,0,4",
+            "false,10,10,24,4,0,0,0,0,4",
             // 200 / 5 = 40, 40 / 5 = 8, 8 / 5 = 1 -- 49 times delayed
-            "true,100,100,249,49,0,0,0,0",
-            "false,100,100,249,49,0,0,0,0",
-            "false,10,10,24,4,0,0,7,10",
-            "false,10,10,24,4,0,0,4,10",
+            "true,100,100,249,49,0,0,0,0,4",
+            "false,100,100,249,49,0,0,0,0,4",
+            "false,10,10,24,4,0,0,7,10,4",
+            "false,10,10,24,4,0,0,4,10,4",
             // 200 / 5 = 40, 40 / 5 = 8, 8 / 5 = 1 -- 49 times delayed
-            "true,100,100,249,49,0,0,3,100",
-            "true,100,100,249,49,0,0,30,100",
-            "true,100,100,249,49,0,0,10,100",
-            "false,100,100,249,49,0,0,20,100",
-            "false,100,100,249,49,0,0,5,100"    }
+            "true,100,100,249,49,0,0,3,100,4",
+            "true,100,100,249,49,0,0,30,100,4",
+            "true,100,100,249,49,0,0,10,100,4",
+            "false,100,100,249,49,0,0,20,100,4",
+            "false,100,100,249,49,0,0,5,100,4"    }
     )
     void cdiTest(boolean doremote, int loops, int expectedDone, int expectedRunning, int expectedDelayed,
-                 int expectedSuspended, int expectedError, int groupNo, int expectedGroup) throws InterruptedException {
+                 int expectedSuspended, int expectedError, int groupNo, int expectedGroup, int successesInSequence) throws InterruptedException {
+        CDITestStep.successesInSequence = successesInSequence;
         final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
         Engine engine = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
         String[] groups = generateGroupNames(groupNo);
@@ -226,29 +234,36 @@ public class ApiTests {
 
     @ParameterizedTest
     @CsvSource({
-            "100,1,2,5000000,1000,1",
-            "20,1,2,5000,10000,1",
-            "100,1,10,5000,10000,10",
-            "100,1,10,5000,10000,100",
-            "100,1,2,5000,10000,100",
-            "100,1,2,5000,10000,10",
-            "10000,1,5,30000,10000,1000",
-            "10000,1,5,3000,10000,0",
-            "100,1,2,3000,1,0",  // one engine a few revivals after creation
-            "100,1,2,300000,1,0",  // one engine no revival
-            "100,1,2,300000,1,0",  // 2 engines no revival
-            "100,1,1,5000,10000,0",
-            "100,1,10,300000,1,0",  // 10 engines no revival
-            "100,1,1,3000,1,0",  // one engine a few revivals after creation
-            "100,1,1,5000,10000,0",
-            "100,1,2,5000,10000,0",
-            "100,1,10,5000,10000,0",
-            "10000,1,2,3000,10000,0",
-            "10000,1,5,3000,10000,0",
-            "10000,1,2,2000,10000,0",
-            "10000,1,5,5000,10000,0",
+            "10000,1,10,1000,100,0,2",
+            "10000,1,10,10000,10000,0,2",
+            "10000,1,2,1000,10000,0,3000",
+            "10000,1,2,1000,10000,0,0",
+            "10000,1,2,3000,10000,0,4",
+            "100,1,2,3000,1,0,4",  // one engine a few revivals after creation
+            "100,1,2,300000,1,0,4",  // one engine no revival
+            "100,1,2,300000,1,0,4",  // 2 engines no revival
+            "100,1,1,5000,10000,0,4",
+            "100,1,10,300000,1,0,4",  // 10 engines no revival
+            "100,1,1,3000,1,0,4",  // one engine a few revivals after creation
+            "100,1,1,5000,10000,0,4",
+            "100,1,2,5000,10000,0,4",
+            "100,1,10,5000,10000,0,4",
+            "10000,1,5,3000,10000,0,4",
+            "10000,1,2,2000,10000,0,4",
+            "10000,1,5,5000,10000,0,4",
+            "10000,1,5,30000,10000,5000,4",
+            "10000,1,5,30000,10000,1000,4",
+            "10000,1,5,3000,10000,0,4",
+            "100,1,2,5000000,1000,1,4",
+            "20,1,2,5000,10000,1,4",
+            "100,1,10,5000,10000,10,4",
+            "100,1,10,5000,10000,100,4",
+            "100,1,2,5000,10000,100,4",
+            "100,1,2,5000,10000,10,4",
+
     })
-    void reviverTest(int jobnumber, int fixedEngineNumber, int engineNumber, int revivalAfter, int creationTime, int groupNo) throws InterruptedException {
+    void reviverTest(int jobnumber, int fixedEngineNumber, int engineNumber, int revivalAfter, int creationTime, int groupNo, int successesInSequence) throws InterruptedException {
+        CDITestStep.successesInSequence = successesInSequence;
         final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
         Engine[] fixedEngines = new Engine[fixedEngineNumber];
         for (int i = 0; i < fixedEngineNumber; i++) {
@@ -273,18 +288,19 @@ public class ApiTests {
             }
             handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, createdCount, groupIds, true);
             Thread.sleep(creationTime / jobnumber);
-            currentEngine[0] = (currentEngine[0] + 1) % engineNumber;
+            currentEngine[0] = (int)(currentEngine[0] + (random() * engineNumber)) % engineNumber;
         }
         waitForTest(testBeansFactory, () -> {
             handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, createdCount, groupIds, false);
-            currentEngine[0] = (currentEngine[0] + 1) % engineNumber;
+            currentEngine[0] = (int)(currentEngine[0] + (random() * engineNumber)) % engineNumber;
         }, jobnumber, createdCount);
-        Arrays.stream(engines).forEach(e -> e.stop());
         Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
         Assertions.assertEquals(jobnumber + createdCount[0], contexts.stream().filter(c -> c.getValue().jobData().state() == DONE).count());
         Assertions.assertEquals(jobnumber + createdCount[0], testBeansFactory.getTestSenderData().stateCounts.get(DONE).get());
         Assertions.assertEquals(0, contexts.stream().filter(c -> c.getValue().jobData().state() == RUNNING).count());
         Assertions.assertEquals(0, contexts.stream().filter(c -> c.getValue().jobData().state() == ERROR).count());
+        Arrays.stream(engines).forEach(e -> e.stop());
+        Arrays.stream(fixedEngines).forEach(e -> e.stop());
     }
 
 
@@ -292,6 +308,7 @@ public class ApiTests {
                                final Engine[] engines, Instant[] start, final int currentEngine, int revivalAfter,
                                final int[] createdCount, String[] groupIds, boolean createJobs) {
         if(Instant.now().isAfter(start[0].plus(Duration.ofMillis(revivalAfter)))) {
+            logger.info("Reviving Engine: {}", currentEngine);
             engines[currentEngine].stop();
             engines[currentEngine] = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
             engines[currentEngine].register(cdiTestJob, TestContext.class);
@@ -315,7 +332,7 @@ public class ApiTests {
         logger.info("Waiting for {} jobs to complete", states.size());
         Instant outputTimestamp = Instant.now();
         while (contexts.stream().anyMatch(c -> (c.getValue().jobData().state() != DONE) && (c.getValue().jobData().state() != ERROR))
-               || states.stream().anyMatch(c -> !(c.getValue() == DONE || c.getValue() == ERROR))) {
+               || states.stream().anyMatch(c -> !((c.getValue() == DONE) || (c.getValue() == ERROR)))) {
             Thread.sleep(200);
             if(doInLoop != null) {
                 doInLoop.run();

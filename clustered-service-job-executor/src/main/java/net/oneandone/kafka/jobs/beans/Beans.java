@@ -1,14 +1,22 @@
 package net.oneandone.kafka.jobs.beans;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import net.oneandone.kafka.clusteredjobs.NodeFactory;
+import net.oneandone.kafka.clusteredjobs.api.ClusterTask;
+import net.oneandone.kafka.clusteredjobs.api.Node;
+import net.oneandone.kafka.clusteredjobs.api.TaskDefaults;
+import net.oneandone.kafka.clusteredjobs.api.TaskDefinition;
 import net.oneandone.kafka.jobs.api.Container;
-import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
+import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
 
 /**
@@ -17,34 +25,25 @@ import net.oneandone.kafka.jobs.implementations.JobImpl;
 public class Beans extends StoppableBase {
 
     static AtomicInteger beanCounter = new AtomicInteger(0);
-
-    int count;
-
     private final Container container;
     private final EngineImpl engine;
-
     private final Executor executor;
-
-    private final Sender sender;
-
+    private final JobsSender jobsSender;
     private final Receiver receiver;
-
-    private final PendingHandler pendingHandler;
-
+    private final JobsPendingHandler jobsPendingHandler;
     private final BlockingDeque<TransportImpl> queue;
-
     private final Map<String, JobDataState> jobDataStates;
-
     private final Map<String, JobImpl> jobs;
-
     private final Map<String, JobDataState> jobDataCorrelationIds;
     private final JobTools jobTools;
-
     private final MetricCounts metricCounts;
-    private final Reviver reviver;
-    private RemoteExecutors remoteExecutors;
-    private Map<String, Queue<JobDataState>> statesByGroup;
-    private Set<String> jobsCreatedByThisNodeForGroup;
+    private final ClusteredJobReviver reviver;
+    int count;
+    private final RemoteExecutors remoteExecutors;
+    private final Map<String, Queue<JobDataState>> statesByGroup;
+    private final Set<String> jobsCreatedByThisNodeForGroup;
+    private final Node node;
+    private final NodeFactory nodeFactory;
 
     public Beans(Container container, BeansFactory beansFactory) {
         super(null);
@@ -57,16 +56,47 @@ public class Beans extends StoppableBase {
         jobDataCorrelationIds = beansFactory.createJobDataCorrelationIds();
         this.engine = beansFactory.createEngine(this);
         this.executor = beansFactory.createExecutor(this);
-        this.sender = beansFactory.createSender(this);
+        this.jobsSender = beansFactory.createSender(this);
         this.receiver = beansFactory.createReceiver(this);
         this.jobTools = beansFactory.createJobTools(this);
-        this.pendingHandler = beansFactory.createPendingHandler(this);
+        this.jobsPendingHandler = beansFactory.createPendingHandler(this);
         this.metricCounts = beansFactory.createMetricCounts(this);
         this.remoteExecutors = beansFactory.createRemoteExecutors(this);
-        this.reviver = beansFactory.createResurrection(this);
+        this.reviver = beansFactory.createReviver(this);
         this.statesByGroup = beansFactory.creatStatesByGroup();
         this.jobsCreatedByThisNodeForGroup = beansFactory.createJobsCreatedByThisNodeForGroup();
+        this.nodeFactory = beansFactory.createNodeFactory();
+        this.node = beansFactory.createNode(container, nodeFactory);
+        this.node.run();
+
+        TaskDefinition reviverDef = new TaskDefaults() {
+
+            @Override
+            public Duration getPeriod() {
+                return getContainer().getConfiguration().getReviverPeriod();
+            }
+
+            @Override
+            public Instant getInitialTimestamp() {
+                return Instant.now();
+            }
+
+            @Override
+            public String getName() {
+                return "ClusteredReviver";
+            }
+
+            @Override
+            public ClusterTask getClusterTask(final Node nodeP) {
+                return reviver;
+            }
+        };
+        node.register(reviverDef);
         setRunning();
+    }
+
+    public Node getNode() {
+        return node;
     }
 
     public Map<String, JobDataState> getJobDataCorrelationIds() {
@@ -93,16 +123,16 @@ public class Beans extends StoppableBase {
         return executor;
     }
 
-    public Sender getSender() {
-        return sender;
+    public JobsSender getSender() {
+        return jobsSender;
     }
 
     public Receiver getReceiver() {
         return receiver;
     }
 
-    public PendingHandler getPendingHandler() {
-        return pendingHandler;
+    public JobsPendingHandler getPendingHandler() {
+        return jobsPendingHandler;
     }
 
     public BlockingDeque<TransportImpl> getQueue() {
@@ -111,6 +141,7 @@ public class Beans extends StoppableBase {
 
     /**
      * registered jobs by signature
+     *
      * @return the registered jobs by signature
      */
     public Map<String, JobImpl> getJobs() {
@@ -119,6 +150,7 @@ public class Beans extends StoppableBase {
 
     /**
      * the currently last state of all jobs as
+     *
      * @return the currently last state of all jobs
      */
     public Map<String, JobDataState> getJobDataStates() {
@@ -133,7 +165,7 @@ public class Beans extends StoppableBase {
         return metricCounts;
     }
 
-    public RemoteExecutors getRemoteExecutors() { return remoteExecutors; }
+    public RemoteExecutors getRemoteExecutors() {return remoteExecutors;}
 
     public int getCount() {
         return count;
@@ -143,26 +175,26 @@ public class Beans extends StoppableBase {
     public void setShutDown() {
         this.beans = this;
         super.setShutDown();
+        node.shutdown();
         reviver.setShutDown();
         receiver.setShutDown();
-        Thread queueWaiter = container.createThread (() -> {
-                    while (!queue.isEmpty()) {
-                        try {
-                            Thread.sleep(10);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    }
-                });
-        queueWaiter.start();
+        Future queueWaiter = container.submitInThread(() -> {
+            while (!queue.isEmpty()) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
         waitForThreads(queueWaiter);
         executor.setShutDown();
         waitForStoppables(receiver, executor, reviver);
-        pendingHandler.setShutDown();
-        this.stopStoppables(engine, jobTools, sender, metricCounts, remoteExecutors);
+        jobsPendingHandler.setShutDown();
+        this.stopStoppables(engine, jobTools, jobsSender, metricCounts, remoteExecutors);
     }
 
-    public Reviver getReviver() {
+    public ClusteredJobReviver getReviver() {
         return reviver;
     }
 }

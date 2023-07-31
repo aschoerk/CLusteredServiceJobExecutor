@@ -14,7 +14,7 @@ public class StepImpl<T> implements Step<T> {
 
     JobImpl<T> job;
 
-    ThreadLocal<Transport> context = new ThreadLocal<>();
+    ThreadLocal<T> context = new ThreadLocal<>();
 
     public StepImpl(JobImpl job, Step<T> step) {
         this.job = job;
@@ -28,12 +28,13 @@ public class StepImpl<T> implements Step<T> {
 
     @Override
     public StepResult handle(final T context) {
+        this.context.set(context);
         return this.step.handle(context);
     }
 
     @Override
     public T getContext() {
-        return Step.super.getContext();
+        return context.get();
     }
 
     @Override

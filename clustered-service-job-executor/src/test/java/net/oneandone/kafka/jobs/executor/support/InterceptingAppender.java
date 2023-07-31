@@ -38,7 +38,7 @@ public class InterceptingAppender extends AbstractAppender {
                                                   @PluginAttribute("ignoreExceptions") boolean ignoreExceptions,
                                                   @PluginAttribute("consoleLevel") String consoleLevelP) {
 
-        return new InterceptingAppender(name == null ? "InterceptingAppender" : name    , filter, layout, ignoreExceptions, consoleLevelP);
+        return new InterceptingAppender((name == null) ? "InterceptingAppender" : name, filter, layout, ignoreExceptions, consoleLevelP);
     }
 
     public static AtomicLong countWarnings = new AtomicLong();

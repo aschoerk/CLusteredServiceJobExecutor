@@ -19,25 +19,15 @@ public class ProvidersImpl implements Providers {
 
     @Override
     public synchronized Engine createEngine(Container container) {
-        final String nodeName = container.getConfiguration().getNodeName();
-        if (nodes.containsKey(nodeName)) {
-            return nodes.get(nodeName).getEngine();
-        } else {
-            Beans beans = new Beans(container, new BeansFactory());
-            nodes.put(nodeName, beans);
-            return beans.getEngine();
-        }
+        Beans beans = new Beans(container, new BeansFactory());
+        nodes.put(beans.getNode().getUniqueNodeId(), beans);
+        return beans.getEngine();
     }
 
     @Override
     public synchronized Engine createTestEngine(Container container, Object beansFactory) {
-        final String nodeName = container.getConfiguration().getNodeName();
-        if (nodes.containsKey(nodeName)) {
-            return nodes.get(nodeName).getEngine();
-        } else {
-            Beans beans = new Beans(container, (BeansFactory) beansFactory);
-            nodes.put(nodeName, beans);
-            return beans.getEngine();
-        }
+        Beans beans = new Beans(container, (BeansFactory) beansFactory);
+        nodes.put(beans.getNode().getUniqueNodeId(), beans);
+        return beans.getEngine();
     }
 }

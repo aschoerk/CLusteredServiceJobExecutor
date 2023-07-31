@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
  * For activation and deactivation use the Object CdbThreadScopedContext.
  */
 public final class CdbThreadScopedContextHolder implements AlterableContext {
-    private static Logger log = LoggerFactory.getLogger(CdbThreadScopedContextHolder.class);
+    private static final Logger log = LoggerFactory.getLogger(CdbThreadScopedContextHolder.class);
     private final ThreadLocal<Integer> active = new ThreadLocal<>();
     private final ThreadLocal<Map<Class<?>, BeanInstance<? extends Object>>> beans = new ThreadLocal<>();
     private final Map<Long, HashMap<Class<?>, BeanInstance<?>>> allThreadScopes = new ConcurrentHashMap<Long, HashMap<Class<?>, BeanInstance<?>>>();

@@ -2,6 +2,9 @@ package net.oneandone.kafka.jobs.beans;
 
 import static net.oneandone.kafka.jobs.api.State.GROUP;
 
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import net.oneandone.kafka.jobs.api.Engine;
 import net.oneandone.kafka.jobs.api.Job;
 import net.oneandone.kafka.jobs.api.KjeException;
@@ -20,9 +23,13 @@ import net.oneandone.kafka.jobs.tools.ResumeJobData;
  */
 public class EngineImpl extends StoppableBase implements Engine {
 
+    static AtomicInteger engineCount = new AtomicInteger();
+
+    String name;
 
     public EngineImpl(Beans beans) {
         super(beans);
+        name = beans.getContainer().getConfiguration().getNodeName() + engineCount.incrementAndGet();
     }
 
 
@@ -32,6 +39,7 @@ public class EngineImpl extends StoppableBase implements Engine {
         beans.getJobs().put(result.signature(), result);
     }
 
+    @Override
     public void register(final RemoteExecutor remoteExecutor) {
         beans.getRemoteExecutors().addExecutor(remoteExecutor);
     }
@@ -68,7 +76,7 @@ public class EngineImpl extends StoppableBase implements Engine {
             }
         }
 
-        JobDataImpl jobData = new JobDataImpl(jobImpl, (Class<T>) context.getClass(), correlationId, groupId, beans.getContainer());
+        JobDataImpl jobData = new JobDataImpl(jobImpl, (Class<T>) context.getClass(), correlationId, groupId, beans);
 
         if (jobData.groupId() != null) {
             jobData.setState(GROUP);
@@ -110,5 +118,13 @@ public class EngineImpl extends StoppableBase implements Engine {
     public void stop() {
         beans.setShutDown();
         waitForStoppables(beans);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String createId() {
+        return UUID.randomUUID().toString();
     }
 }

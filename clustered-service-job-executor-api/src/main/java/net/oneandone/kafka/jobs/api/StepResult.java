@@ -10,7 +10,7 @@ import java.time.temporal.TemporalAmount;
  * @author aschoerk
  */
 public class StepResult {
-    private StepResultEnum stepResultEnum;
+    private final StepResultEnum stepResultEnum;
 
     private int stepIncrement = 1;
 

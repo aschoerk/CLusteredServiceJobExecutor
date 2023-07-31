@@ -31,14 +31,14 @@ public class RemoteExecutors extends StoppableBase implements RemoteExecutor {
     @Override
     public StepResult handle(final Transport transport) {
         List<RemoteExecutor> candidates = executors.get(transport.jobData().jobSignature());
-        if (candidates == null || candidates.isEmpty()) {
+        if ((candidates == null) || candidates.isEmpty()) {
             throw new KjeException("Did not find Executor for " + transport.jobData());
         }
         return candidates.iterator().next().handle(transport);
     }
 
     boolean thereIsRemoteExecutor(String signature) {
-        return executors.get(signature) != null && executors.get(signature).size() > 0;
+        return (executors.get(signature) != null) && (executors.get(signature).size() > 0);
     }
 
     public void addExecutor(final RemoteExecutor remoteExecutor) {

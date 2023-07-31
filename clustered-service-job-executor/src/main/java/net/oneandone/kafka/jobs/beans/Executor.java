@@ -31,11 +31,11 @@ public class Executor extends StoppableBase {
     static Random random = new Random();
     private final List<Future<?>> currentFutures = new ArrayList<>();
 
-    Thread dequer;
+    Future dequer;
 
     public Executor(final Beans beans) {
         super(beans);
-        dequer = beans.getContainer().createThread(() -> {
+        dequer = beans.getContainer().submitInLongRunningThread(() -> {
             initThreadName("Executor");
             setRunning();
             while (!doShutDown()) {
@@ -58,7 +58,6 @@ public class Executor extends StoppableBase {
                 }
             }
         });
-        dequer.start();
     }
 
     @Override
@@ -79,10 +78,10 @@ public class Executor extends StoppableBase {
     boolean thereIsANewStep(JobData jobData, int stepInc) {
         JobImpl job = beans.getJobs().get(jobData.jobSignature());
         final int newStep = jobData.step() + stepInc;
-        if(newStep < 0 || newStep > job.steps().length) {
+        if((newStep < 0) || (newStep > job.steps().length)) {
             throw new UnRecoverable(String.format("Trying to execute invalid step %d in Job %s by increment: %d", newStep, job.name(), stepInc));
         }
-        return newStep >= 0 && newStep <= job.steps().length - 1;
+        return (newStep >= 0) && (newStep <= (job.steps().length - 1));
     }
 
     TransportImpl stopJob(TransportImpl context) {
@@ -112,7 +111,7 @@ public class Executor extends StoppableBase {
         final JobDataImpl jobData = context.jobData();
         int retries = jobData.retries();
         final Configuration configuration = beans.getContainer().getConfiguration();
-        if(retries < configuration.getMaxPhase1Tries() + configuration.getMaxPhase2Tries()) {
+        if(retries < (configuration.getMaxPhase1Tries() + configuration.getMaxPhase2Tries())) {
             retries++;
             beans.getJobTools().changeStateTo(jobData, DELAYED);
             long time;
@@ -145,8 +144,8 @@ public class Executor extends StoppableBase {
             StepResult result;
             final int currentStep = jobData.step();
             JobImpl job = beans.getJobs().get(signature);
-            if(job == null ||
-               beans.getRemoteExecutors().thereIsRemoteExecutor(signature) && beans.getContainer().getConfiguration().preferRemoteExecution()) {
+            if((job == null) ||
+               (beans.getRemoteExecutors().thereIsRemoteExecutor(signature) && beans.getContainer().getConfiguration().preferRemoteExecution())) {
                 result = beans.getRemoteExecutors().handle(element);
             }
             else {

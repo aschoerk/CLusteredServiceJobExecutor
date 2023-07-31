@@ -9,15 +9,16 @@ import net.oneandone.kafka.jobs.api.Container;
 import net.oneandone.kafka.jobs.api.JobData;
 import net.oneandone.kafka.jobs.api.Remark;
 import net.oneandone.kafka.jobs.api.State;
+import net.oneandone.kafka.jobs.beans.Beans;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
 
 /**
  * @author aschoerk
  */
 public class JobDataImpl implements JobData {
-    private String id;
+    private final String id;
 
-    private String jobSignature;
+    private final String jobSignature;
 
     private Instant createdAt;
 
@@ -42,12 +43,12 @@ public class JobDataImpl implements JobData {
     private RemarkImpl[] comments = null;
     private String groupId = null;
 
-    public <T> JobDataImpl(JobImpl<T> job, final Class<T> contextClass, String correlationId, String groupId, Container container) {
-        this(job.getIdCreator() != null ? job.getIdCreator().get() : UUID.randomUUID().toString(),
+    public <T> JobDataImpl(JobImpl<T> job, final Class<T> contextClass, String correlationId, String groupId, Beans beans) {
+        this((job.getIdCreator() != null) ? job.getIdCreator().get() : beans.getEngine().createId(),
                 correlationId, State.RUNNING, job.signature(), 0, 0);
 
         this.contextClass = contextClass.getCanonicalName();
-        this.createdAt = container.getClock().instant();
+        this.createdAt = beans.getContainer().getClock().instant();
         this.groupId = groupId;
     }
 

@@ -5,7 +5,7 @@ import java.time.Duration;
 /**
  * @author aschoerk
  */
-public interface Configuration {
+public interface Configuration extends net.oneandone.kafka.clusteredjobs.api.Configuration {
 
     default int getMaxStepsInOneLoop() { return 100; }
 
@@ -50,7 +50,16 @@ public interface Configuration {
      * time between searches in state-data for expired job-steps
      * @return time between searches in state-data for expired job-steps
      */
+    @Override
     default Duration getReviverPeriod() { return Duration.ofMillis(20000); }
+
+    /**
+     * Time GroupManager is waiting periodically for GROUP-Jobs
+     * @return Time GroupManager is waiting periodically for GROUP-Jobs
+     */
+    default Duration getGroupManagerPeriod() {
+        return Duration.ofMillis(5000);
+    }
 
     default Duration getMaxTimeToWaitForOtherPartitions() {
         return Duration.ofMillis(5000);

@@ -9,13 +9,14 @@ import net.oneandone.kafka.jobs.api.events.Event;
 /**
  * Used to support container characteristics like Thread-Management.
  */
-public interface Container {
+public interface Container extends net.oneandone.kafka.clusteredjobs.api.Container {
 
     /**
      * return the name of the topic to use for synchronization. Must have exactly one partition
      *
      * @return the name of the topic to use for synchronization. Must have exactly one partition
      */
+    @Override
     default String getSyncTopicName() {return "SyncTopic"; }
 
     /**
@@ -34,17 +35,8 @@ public interface Container {
      *
      * @return the kafka bootstrapservers
      */
+    @Override
     String getBootstrapServers();
-
-    /**
-     * Allows to use the Container-Threadpooling.
-     *
-     * @param runnable The runnable to execute when starting the thread
-     * @return the thread created in the container environment
-     */
-    Thread createThread(Runnable runnable);
-
-    Future<?> submitInThread(Runnable runnable);
 
     /**
      * signal the beginning of a threadusage.
@@ -76,8 +68,6 @@ public interface Container {
      */
     default <T> T unmarshal(String value, Class<T> clazz) {return null;}
 
-    ;
-
     /**
      * the clock to be used for Instant-Creation
      *
@@ -92,8 +82,6 @@ public interface Container {
      */
     Transaction getTransaction();
 
-    Supplier<String> getIdCreator();
-
     /**
      * fire an Event
      *
@@ -101,6 +89,7 @@ public interface Container {
      */
     default void fire(Event event) {}
 
+    @Override
     default Configuration getConfiguration() {
         return new Configuration() {
         };

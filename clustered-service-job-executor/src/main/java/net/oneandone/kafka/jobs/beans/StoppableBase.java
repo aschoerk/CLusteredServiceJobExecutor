@@ -3,6 +3,8 @@ package net.oneandone.kafka.jobs.beans;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
@@ -12,7 +14,8 @@ import org.slf4j.LoggerFactory;
  * @author aschoerk
  */
 class StoppableBase implements Stoppable {
-    private static AtomicInteger threadIx = new AtomicInteger();
+    private static final AtomicInteger threadIx = new AtomicInteger();
+
     protected Beans beans;
     Logger logger = LoggerFactory.getLogger(this.getClass());
     boolean running = false;
@@ -44,31 +47,31 @@ class StoppableBase implements Stoppable {
         return shutdown;
     }
 
-    protected void waitForThreads(Thread... threads) {
-        beans.getContainer().createThread(() -> {
+    protected void waitForThreads(Future ... threads) {
+        beans.getContainer().submitInThread(() -> {
             initThreadName("WaitForThreads", true);
             Arrays.stream(threads).forEach(t ->
             {
                 if(t != null) {
-                    logger.info("Waiting for Thread to end {}", t.getName());
+                    logger.info("Waiting for Thread to end {}", t);
                 }
             });
             try {
                 Instant startTime = beans.getContainer().getClock().instant();
-                while (Arrays.stream(threads).anyMatch(t -> t != null && t.isAlive()) && startTime.plus(Duration.ofMillis(5000)).isAfter(beans.getContainer().getClock().instant())) {
+                while (Arrays.stream(threads).anyMatch(t -> (t != null) && !t.isDone() && !t.isCancelled()) && startTime.plus(Duration.ofMillis(5000)).isAfter(beans.getContainer().getClock().instant())) {
                     Thread.sleep(10);
                 }
-                Arrays.stream(threads).filter(t -> t != null && t.isAlive()).forEach(
-                        t -> t.interrupt()
+                Arrays.stream(threads).filter(t -> (t != null) && !t.isDone() && !t.isCancelled()).forEach(
+                        t -> t.cancel(true)
                 );
-                while (Arrays.stream(threads).anyMatch(t -> t != null && t.isAlive()) && startTime.plus(Duration.ofMillis(5000)).isAfter(beans.getContainer().getClock().instant())) {
+                while (Arrays.stream(threads).anyMatch(t -> (t != null) && !t.isDone() && !t.isCancelled()) && startTime.plus(Duration.ofMillis(5000)).isAfter(beans.getContainer().getClock().instant())) {
                     Thread.sleep(10);
                 }
             } catch (InterruptedException i) {
                 Thread.interrupted();
             }
             setRunning(false);
-        }).start();
+        });
     }
 
     protected void waitForStoppables(Stoppable... stoppables) {
@@ -83,7 +86,9 @@ class StoppableBase implements Stoppable {
 
     protected void stopStoppables(Stoppable... stoppables) {
         Arrays.stream(stoppables).forEach(s -> {
-            while (s.isRunning()) s.setShutDown();
+            while (s.isRunning()) {
+                s.setShutDown();
+            }
         });
     }
 
@@ -101,5 +106,9 @@ class StoppableBase implements Stoppable {
                  threadIx.incrementAndGet(), name);
         Thread.currentThread().setName(threadName);
         logger.trace("Initialized Name {} of Thread with Id: {}", name, Thread.currentThread().getId());
+    }
+
+    public Beans getBeans() {
+        return beans;
     }
 }

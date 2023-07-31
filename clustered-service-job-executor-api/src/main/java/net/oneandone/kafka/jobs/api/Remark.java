@@ -17,7 +17,7 @@ public interface Remark {
      * who created the remark
      * @return who created the remark
      */
-    default String creator() { return ""; };
+    default String creator() { return ""; }
 
     /**
      * the id of a remark used to better be able to classify it

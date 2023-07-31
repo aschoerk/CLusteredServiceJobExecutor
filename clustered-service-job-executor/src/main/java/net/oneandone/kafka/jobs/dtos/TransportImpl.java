@@ -10,13 +10,13 @@ import net.oneandone.kafka.jobs.tools.JsonMarshaller;
  */
 public class TransportImpl implements Transport {
 
-    private JobData jobData;
+    private final JobData jobData;
 
     private String context;
 
     private String resumeData = null;
 
-    private Beans beans;
+    private final Beans beans;
 
     public TransportImpl(final JobDataImpl jobData, final String context, Beans beans) {
         this.jobData = jobData;
@@ -52,6 +52,7 @@ public class TransportImpl implements Transport {
         return context;
     }
 
+    @Override
     public String resumeData() { return resumeData; }
 
     public void setResumeData(final String s) {

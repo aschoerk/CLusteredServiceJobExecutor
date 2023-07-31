@@ -6,8 +6,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import net.oneandone.kafka.jobs.api.State;
@@ -17,29 +19,28 @@ import net.oneandone.kafka.jobs.dtos.JobDataState;
 /**
  * @author aschoerk
  */
-public class PendingHandler extends StoppableBase {
-    private final SortedSet<TransportImpl> sortedPending = Collections.synchronizedSortedSet(new TreeSet<>(new TimestampComparator()));
+public class JobsPendingHandler extends StoppableBase {
+    protected final SortedSet<TransportImpl> sortedPending = Collections.synchronizedSortedSet(new TreeSet<>(new TimestampComparator()));
 
     private final Map<String, TransportImpl> pendingByIdentifier = Collections.synchronizedMap(new HashMap<>());
 
-    private int defaultWaitMillis = 10000;
+    private final int defaultWaitMillis = 10000;
 
-    final Thread pendingHandlerThread;
+    final Future pendingHandlerThread;
 
     public static class TimestampComparator implements Comparator<TransportImpl> {
         @Override
         public int compare(final TransportImpl o1, final TransportImpl o2) {
             int result = o1.jobData().date().compareTo(o2.jobData().date());
-            return result != 0 ? result : o1.jobData().id().compareTo(o2.jobData().id());
+            return (result != 0) ? result : o1.jobData().id().compareTo(o2.jobData().id());
         }
     }
 
-    public PendingHandler(final Beans beans) {
+    public JobsPendingHandler(final Beans beans) {
         super(beans);
-        pendingHandlerThread = beans.getContainer().createThread(
+        pendingHandlerThread = beans.getContainer().submitInLongRunningThread(
                 () -> run()
         );
-        pendingHandlerThread.start();
     }
 
     /**
@@ -48,7 +49,7 @@ public class PendingHandler extends StoppableBase {
      */
     public void schedulePending(final TransportImpl e) {
         logger.info("Node: {} Scheduling JobData: {} in {} milliseconds",
-                beans.getContainer().getConfiguration().getNodeName(),
+                beans.getNode().getUniqueNodeId(),
                 e.jobData(),
                 Duration.between(Instant.now(),e.jobData().date()).toMillis());
         removePending(e.jobData().id(), false);
@@ -67,7 +68,7 @@ public class PendingHandler extends StoppableBase {
      * @param enforce if true log an error if it is gnerally found but no entry is currently scheduled
      */
     private void removePending(final String jobDataId, boolean enforce) {
-        logger.info("Removing pending {}", jobDataId);
+        logger.trace("Removing pending {}", jobDataId);
         TransportImpl e = pendingByIdentifier.get(jobDataId);
         pendingByIdentifier.remove(jobDataId);
         if(e != null) {
@@ -79,7 +80,7 @@ public class PendingHandler extends StoppableBase {
     }
 
     public void run() {
-        initThreadName("PendingHandler");
+        initThreadName("JobsPendingHandler");
         setRunning();
         try {
             while (!doShutDown()) {
@@ -105,7 +106,7 @@ public class PendingHandler extends StoppableBase {
                     toWaitTime = 500;
                 }
                 if (sortedPending.size() > 0) {
-                    logger.info("Waiting for notify or {} milliseconds next entry {} jobdata: {}", toWaitTime, sortedPending.first().context(), sortedPending.first().jobData());
+                    logger.trace("Waiting for notify or {} milliseconds next entry {} jobdata: {}", toWaitTime, sortedPending.first().context(), sortedPending.first().jobData());
                 }
                 if (toWaitTime > 0) {
                     synchronized (this) {
@@ -113,10 +114,12 @@ public class PendingHandler extends StoppableBase {
                     }
                 }
             } catch (InterruptedException e) {
-                if (!doShutDown())
-                    logger.error("PendingHandler N: {} got interrupted {}", beans.getContainer().getConfiguration().getNodeName(), e);
-                else
-                    logger.info("PendingHandler N: {} got interrupted {}", beans.getContainer().getConfiguration().getNodeName(), e);
+                if (!doShutDown()) {
+                    logger.error("JobsPendingHandler N: {} got interrupted {}", beans.getNode().getUniqueNodeId(), e);
+                }
+                else {
+                    logger.info("JobsPendingHandler N: {} got interrupted {}", beans.getNode().getUniqueNodeId(), e);
+                }
             }
         }
     }
@@ -134,25 +137,23 @@ public class PendingHandler extends StoppableBase {
     }
 
     private void selectAndExecute() {
-        while (sortedPending.size() > 0 && !sortedPending.first().jobData().date().isAfter(beans.getContainer().getClock().instant())) {
+        while ((sortedPending.size() > 0) && !sortedPending.first().jobData().date().isAfter(beans.getContainer().getClock().instant())) {
             TransportImpl pendingTask = sortedPending.first();
             sortedPending.remove(pendingTask);
-            logger.info("Found Pending: {}", pendingTask.jobData());
+            logger.info("Executing Pending: {}", pendingTask.jobData());
             try {
-                switch (pendingTask.jobData().state()) {
-                    case DELAYED:
-                        beans.getMetricCounts().incWokenUpDelayed();
-                        if (beans.getJobDataStates().containsKey(pendingTask.jobData().id())) {
-                            JobDataState jobDataState = beans.getJobDataStates().get(pendingTask.jobData().id());
-                            if (jobDataState.getState() == State.DELAYED && jobDataState.getDate().equals(pendingTask.jobData().date())) {
-                                beans.getJobTools().prepareJobDataForRunning(pendingTask.jobData());
-                                beans.getSender().send(pendingTask);
-                            } else {
-                                logger.warn("Woken up Delayed {} but state not fitting {}",pendingTask.jobData(), jobDataState);
-                            }
+                if(Objects.requireNonNull(pendingTask.jobData().state()) == State.DELAYED) {
+                    beans.getMetricCounts().incWokenUpDelayed();
+                    if(beans.getJobDataStates().containsKey(pendingTask.jobData().id())) {
+                        JobDataState jobDataState = beans.getJobDataStates().get(pendingTask.jobData().id());
+                        if((jobDataState.getState() == State.DELAYED) && jobDataState.getDate().equals(pendingTask.jobData().date())) {
+                            beans.getJobTools().prepareJobDataForRunning(pendingTask.jobData());
+                            beans.getSender().send(pendingTask);
                         }
-                        break;
-
+                        else {
+                            logger.warn("Woken up Delayed {} but state not fitting data: {}", jobDataState, pendingTask.jobData());
+                        }
+                    }
                 }
             } catch (Throwable t) {
                 logger.error(String.format("Executing PendingTask: %s Exception:", pendingTask.jobData().id()), t);

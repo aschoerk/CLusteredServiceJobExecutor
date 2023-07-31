@@ -1,6 +1,7 @@
 package net.oneandone.kafka.jobs.implementations;
 
 import java.util.Arrays;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -47,8 +48,9 @@ public class JobImpl<T> implements Job<T> {
         return steps;
     }
 
+    @Override
     public Supplier<String> getIdCreator() {
-        return beans.getContainer().getIdCreator();
+        return null;
     }
 
 

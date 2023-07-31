@@ -21,11 +21,13 @@ public class TestContainer implements Container {
     private final Clock clock;
     private String bootstrapServers;
 
-    private CdbThreadScopedContext cdbThreadScopedContext;
+    private final CdbThreadScopedContext cdbThreadScopedContext;
     BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>();
 
 
     ExecutorService executorService;
+
+    ExecutorService longRunningThreadExecutorService;
 
     public TestContainer(final String bootstrapServers,
                          CdbThreadScopedContext cdbThreadScopedContext,
@@ -35,6 +37,9 @@ public class TestContainer implements Container {
         this.clock = clock;
         executorService = new ThreadPoolExecutor(20, 50, 10000,
                 TimeUnit.MILLISECONDS, workQueue);
+        longRunningThreadExecutorService = new ThreadPoolExecutor(100, 100, 100,
+                TimeUnit.MILLISECONDS, workQueue);
+
     }
 
     @Override
@@ -53,14 +58,15 @@ public class TestContainer implements Container {
     }
 
     @Override
-    public Thread createThread(Runnable runnable) {
-        return new Thread(runnable);
+    public Future<?> submitInThread(final Runnable runnable) {
+        return executorService.submit(runnable);
     }
 
     @Override
-    public Future<?> submitInThread(Runnable runnable) {
-        return executorService.submit(runnable);
+    public Future submitInLongRunningThread(final Runnable runnable) {
+        return longRunningThreadExecutorService.submit(runnable);
     }
+
 
     @Override
     public void startThreadUsage() {
@@ -85,11 +91,6 @@ public class TestContainer implements Container {
     }
 
     final AtomicLong ids = new AtomicLong();
-
-    @Override
-    public Supplier<String> getIdCreator() {
-        return () -> getConfiguration().getNodeName() + "_" + ids.incrementAndGet();
-    }
 
     Configuration configuration = new Configuration() {
         @Override

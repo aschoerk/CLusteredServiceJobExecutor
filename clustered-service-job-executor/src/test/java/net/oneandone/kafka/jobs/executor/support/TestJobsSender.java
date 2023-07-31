@@ -4,19 +4,19 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import net.oneandone.kafka.jobs.beans.Beans;
-import net.oneandone.kafka.jobs.beans.Sender;
+import net.oneandone.kafka.jobs.beans.JobsSender;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 
 /**
  * @author aschoerk
  */
-public class TestSender extends Sender {
+public class TestJobsSender extends JobsSender {
 
 
     private final TestSenderData data;
 
-    public TestSender(Beans beans, TestSenderData data) {
+    public TestJobsSender(Beans beans, TestSenderData data) {
         super(beans);
         this.data = data;
 

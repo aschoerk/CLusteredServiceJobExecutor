@@ -24,6 +24,10 @@
         </dependency>
         <dependency>
             <groupId>net.oneandone.kafka-clustered-task-scheduler</groupId>
+            <artifactId>kafka-clustered-task-scheduler-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>net.oneandone.kafka-clustered-task-scheduler</groupId>
             <artifactId>kafka-clustered-task-scheduler</artifactId>
         </dependency>
         <dependency>

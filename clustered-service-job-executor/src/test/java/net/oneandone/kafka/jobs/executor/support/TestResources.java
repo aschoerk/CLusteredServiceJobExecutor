@@ -44,20 +44,23 @@ public class TestResources {
         brokerConfig.setProperty(KafkaConfig.ListenersProp(), "PLAINTEXT://localhost:0");
         cluster = new TestCluster(1, brokerConfig);
         cluster.start();
+
         getContainer().setBootstrapServers(cluster.bootstrapServers());
         Map<String, String> topicConfig = new HashMap<>();
         topicConfig.put("retention.ms", Integer.toString(12 * 3600 * 1000));
-        cluster.deleteTopicAndWait(getContainer().getJobDataTopicName());
+        cluster.deleteTopicsAndWait(10000, getContainer().getJobDataTopicName(), getContainer().getJobStateTopicName(), getContainer().getSyncTopicName());
         cluster.createTopic(getContainer().getJobDataTopicName(), 2, 1, topicConfig);
-        cluster.deleteTopicAndWait(getContainer().getJobStateTopicName());
         cluster.createTopic(getContainer().getJobStateTopicName(), 2, 1, topicConfig);
+        cluster.createTopic(getContainer().getSyncTopicName(), 1, 1, topicConfig);
     }
 
 
 
     public void stopKafkaCluster() {
-        if (cluster != null)
+        if (cluster != null) {
             cluster.shutdown();
+        }
+        cluster = null;
     }
 
     public TestCluster getCluster() {

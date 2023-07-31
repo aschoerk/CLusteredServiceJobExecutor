@@ -1,6 +1,8 @@
 package net.oneandone.kafka.jobs.api;
 
 import java.util.Arrays;
+import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -18,16 +20,19 @@ public interface Job<Context> extends JobInfo {
      * name, used to show generally, what the job should do
      * @return name, used to show generally, what the job should do
      */
+    @Override
     default String name() { return this.getClass().getSimpleName(); }
 
     /**
      * a string signifying matching jobs, if name might be the same, but the steps where changed.
      * @return a string signifying matching jobs, if name might be the same, but the steps where changed.
      */
+    @Override
     default String signature() {
         return name() + "|" + version() + "|" + Arrays.stream(steps()).map(Step::name).collect(Collectors.joining("|"));
     }
 
+    @Override
     default int stepNumber() { return steps().length; }
 
     /**
@@ -37,4 +42,5 @@ public interface Job<Context> extends JobInfo {
     Step<Context>[] steps();
 
 
+    default Supplier<String> getIdCreator() { return () -> UUID.randomUUID().toString(); }
 }
