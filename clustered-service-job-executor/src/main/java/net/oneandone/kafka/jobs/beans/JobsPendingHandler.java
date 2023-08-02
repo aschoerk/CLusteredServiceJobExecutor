@@ -50,7 +50,7 @@ public class JobsPendingHandler extends StoppableBase {
     public void schedulePending(final TransportImpl e) {
         logger.info("Node: {} Scheduling JobData: {} in {} milliseconds",
                 beans.getNode().getUniqueNodeId(),
-                e.jobData(),
+                e.jobData().id(),
                 Duration.between(Instant.now(),e.jobData().date()).toMillis());
         removePending(e.jobData().id(), false);
         pendingByIdentifier.put(e.jobData().id(), e);
@@ -144,16 +144,8 @@ public class JobsPendingHandler extends StoppableBase {
             try {
                 if(Objects.requireNonNull(pendingTask.jobData().state()) == State.DELAYED) {
                     beans.getMetricCounts().incWokenUpDelayed();
-                    if(beans.getJobDataStates().containsKey(pendingTask.jobData().id())) {
-                        JobDataState jobDataState = beans.getJobDataStates().get(pendingTask.jobData().id());
-                        if((jobDataState.getState() == State.DELAYED) && jobDataState.getDate().equals(pendingTask.jobData().date())) {
-                            beans.getJobTools().prepareJobDataForRunning(pendingTask.jobData());
-                            beans.getSender().send(pendingTask);
-                        }
-                        else {
-                            logger.warn("Woken up Delayed {} but state not fitting data: {}", jobDataState, pendingTask.jobData());
-                        }
-                    }
+                    beans.getJobTools().prepareJobDataForRunning(pendingTask.jobData());
+                    beans.getSender().send(pendingTask);
                 }
             } catch (Throwable t) {
                 logger.error(String.format("Executing PendingTask: %s Exception:", pendingTask.jobData().id()), t);

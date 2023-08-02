@@ -89,6 +89,13 @@ public interface Container extends net.oneandone.kafka.clusteredjobs.api.Contain
      */
     default void fire(Event event) {}
 
+    /**
+     * Allows to use the Container-Threadpooling.
+     * @param runnable The runnable to execute when starting the thread
+     * @return the thread created in the container environment
+     */
+    Future submitInThread(Runnable runnable);
+
     @Override
     default Configuration getConfiguration() {
         return new Configuration() {

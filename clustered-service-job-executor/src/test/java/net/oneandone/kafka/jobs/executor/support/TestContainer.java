@@ -2,14 +2,15 @@ package net.oneandone.kafka.jobs.executor.support;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 
 import net.oneandone.kafka.jobs.api.Configuration;
 import net.oneandone.kafka.jobs.api.Container;
@@ -22,7 +23,9 @@ public class TestContainer implements Container {
     private String bootstrapServers;
 
     private final CdbThreadScopedContext cdbThreadScopedContext;
-    BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>();
+    public BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<>(10);
+
+    BlockingQueue<Runnable> longRunningWorkQueue = new LinkedBlockingQueue<>();
 
 
     ExecutorService executorService;
@@ -35,10 +38,10 @@ public class TestContainer implements Container {
         this.bootstrapServers = bootstrapServers;
         this.cdbThreadScopedContext = cdbThreadScopedContext;
         this.clock = clock;
-        executorService = new ThreadPoolExecutor(20, 50, 10000,
+        executorService = new ThreadPoolExecutor(20, 50, 1,
                 TimeUnit.MILLISECONDS, workQueue);
-        longRunningThreadExecutorService = new ThreadPoolExecutor(100, 100, 100,
-                TimeUnit.MILLISECONDS, workQueue);
+        longRunningThreadExecutorService = new ThreadPoolExecutor(100, 300, 100,
+                TimeUnit.MILLISECONDS, longRunningWorkQueue);
 
     }
 
@@ -63,7 +66,12 @@ public class TestContainer implements Container {
     }
 
     @Override
-    public Future submitInLongRunningThread(final Runnable runnable) {
+    public Future submitClusteredTaskThread(final Runnable runnable) {
+        return longRunningThreadExecutorService.submit(runnable);
+    }
+
+    @Override
+    public Future<?> submitInLongRunningThread(final Runnable runnable) {
         return longRunningThreadExecutorService.submit(runnable);
     }
 
@@ -110,12 +118,22 @@ public class TestContainer implements Container {
 
         @Override
         public Duration getMaxDelayOfStateMessages() {
-            return Duration.ofSeconds(3);
+            return Duration.ofSeconds(30);
         }
 
         @Override
         public String getNodeName() {
             return "N" + this.hashCode() + "_";
+        }
+
+        @Override
+        public int getMaxPollJobDataRecords() {
+            return 20;
+        }
+
+        @Override
+        public Duration getConsumerPollInterval() {
+            return Duration.ofSeconds(60);
         }
     };
 

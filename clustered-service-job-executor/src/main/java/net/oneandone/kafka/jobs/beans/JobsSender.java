@@ -53,8 +53,9 @@ public class JobsSender extends StoppableBase {
 
     public <T> void send(TransportImpl context) {
 
-        logger.info("Beans: {} Sending {} ", beans.getCount(), context.jobData());
-        String jobDataJson = JsonMarshaller.gson.toJson(context.jobData());
+        final JobDataImpl jobData = context.jobData();
+        logger.info("E: {} Sending jobData for {} id: {} state: {} step: {} stepCount: {}", beans.getEngine().getName(), jobData.jobSignature(), jobData.id(), jobData.state(), jobData.step(), jobData.stepCount());
+        String jobDataJson = JsonMarshaller.gson.toJson(jobData);
 
         String contextJson = context.context();
 
@@ -73,16 +74,19 @@ public class JobsSender extends StoppableBase {
 
         futures.removeIf(f -> f.isDone());
 
-        futures.add(getJobDataProducer().send(new ProducerRecord(beans.getContainer().getJobDataTopicName(), context.jobData().id(), toSend)));
+        futures.add(getJobDataProducer().send(new ProducerRecord(beans.getContainer().getJobDataTopicName(), jobData.id(), toSend)));
+        if (futures.size() > 100) {
+            getJobDataProducer().flush();
+        }
     }
 
     public void sendState(JobDataImpl jobData, ConsumerRecord r) {
-        logger.info("Beans: {} Sending state for {} ", beans.getCount(), jobData);
+        logger.info("E: {} Sending state for {} ", beans.getEngine().getName(), jobData);
 
         futures.removeIf(f -> f.isDone());
         JobDataState jobDataState = new JobDataState(jobData.id(), jobData.state(),
-                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.step(), jobData.correlationId(), jobData.groupId(), null);
-        logger.info("Beans: {} Sending state record: {}", beans.getCount(), jobDataState);
+                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.step(), jobData.correlationId(), jobData.groupId());
+        logger.info("Beans: {} Sending state record: {}", beans.getEngine().getName(), jobDataState);
         jobDataState.setSent(beans.getContainer().getClock().instant());
         jobDataState.setSender(beans.getNode().getUniqueNodeId());
         String toSend = JsonMarshaller.gson.toJson(jobDataState);

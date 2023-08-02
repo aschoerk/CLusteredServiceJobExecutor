@@ -2,7 +2,7 @@
 <Configuration status="INFO">
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%-20t]  %logger{1} - %msg%n"/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t]  %logger{1} - %msg%n"/>
         </Console>
         <InterceptingAppender name="InterceptingAppender" consoleLevel="TRACE"/>
     </Appenders>
@@ -11,7 +11,7 @@
             <AppenderRef ref="Console"/>
             <AppenderRef ref="InterceptingAppender" />
         </Root>
-        <Logger name="net.oneandone.kafka.jobs" level="TRACE" additivity="false">
+        <Logger name="net.oneandone.kafka.jobs" level="WARN" additivity="false">
             <AppenderRef ref="InterceptingAppender"/>
         </Logger>
         <Logger name="net.oneandone.kafka.clusteredjobs" level="WARN" additivity="false">

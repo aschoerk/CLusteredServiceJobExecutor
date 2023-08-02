@@ -48,7 +48,7 @@ class StoppableBase implements Stoppable {
     }
 
     protected void waitForThreads(Future ... threads) {
-        beans.getContainer().submitInThread(() -> {
+        beans.getContainer().submitInLongRunningThread(() -> {
             initThreadName("WaitForThreads", true);
             Arrays.stream(threads).forEach(t ->
             {
@@ -98,7 +98,7 @@ class StoppableBase implements Stoppable {
 
     protected void initThreadName(final String name, boolean ignoreStoppable) {
         if (!ignoreStoppable && doShutDown()) {
-            logger.error("Initializing Threadname {} but doShutdown is true", name);
+            return;
         }
         String threadName = String.format("KCTM_%05d_%05d_%07d_%s",
                 beans.getCount(),

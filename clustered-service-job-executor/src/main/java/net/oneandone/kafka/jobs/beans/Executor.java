@@ -7,9 +7,11 @@ import static net.oneandone.kafka.jobs.api.State.ERROR;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import net.oneandone.kafka.jobs.api.Configuration;
@@ -29,9 +31,9 @@ public class Executor extends StoppableBase {
 
 
     static Random random = new Random();
-    private final List<Future<?>> currentFutures = new ArrayList<>();
+    private final List<Future<?>> currentFutures = new LinkedList<>();
 
-    Future dequer;
+    Future<?> dequer;
 
     public Executor(final Beans beans) {
         super(beans);
@@ -41,23 +43,35 @@ public class Executor extends StoppableBase {
             while (!doShutDown()) {
                 try {
                     final TransportImpl element = beans.getQueue().pollLast(500, TimeUnit.MILLISECONDS);
-                    if(element != null) {
-                        Future<?> future = beans.getContainer().submitInThread(
-                                () -> processStep(element)
-                        );
-                        if(future.isCancelled()) {
-                            logger.error("Future is cancelled");
-                        }
-                        currentFutures.add(future);
-                    }
-                    else {
-                        currentFutures.removeIf(f -> f.isDone());
-                    }
+                    if (!executeJob(element)) {
+                        delayJob(element, "no thread left");
+                        beans.getSender().send(element);
+                    };
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
             }
         });
+    }
+
+    public boolean executeJob(final TransportImpl element) {
+        currentFutures.removeIf(f -> f.isDone() || f.isCancelled());
+        if (currentFutures.size() > beans.getContainer().getConfiguration().maxPendingJobsPerNode()) {
+            return false;
+        } else {
+            try {
+                Future<?> future = beans.getContainer().submitInThread(
+                        () -> processStep(element)
+                );
+                if(future.isCancelled()) {
+                    logger.error("Future is cancelled");
+                }
+                currentFutures.add(future);
+                return true;
+            } catch (RejectedExecutionException e) {
+                return false;
+            }
+        }
     }
 
     @Override
@@ -76,7 +90,7 @@ public class Executor extends StoppableBase {
     }
 
     boolean thereIsANewStep(JobData jobData, int stepInc) {
-        JobImpl job = beans.getJobs().get(jobData.jobSignature());
+        JobImpl<?> job = beans.getJobs().get(jobData.jobSignature());
         final int newStep = jobData.step() + stepInc;
         if((newStep < 0) || (newStep > job.steps().length)) {
             throw new UnRecoverable(String.format("Trying to execute invalid step %d in Job %s by increment: %d", newStep, job.name(), stepInc));
@@ -135,7 +149,7 @@ public class Executor extends StoppableBase {
         }
     }
 
-    private void processStep(final TransportImpl element) {
+    private <Context> void processStep(final TransportImpl element) {
         initThreadName("Step");
         beans.getContainer().startThreadUsage();
         try {
@@ -143,16 +157,16 @@ public class Executor extends StoppableBase {
             String signature = jobData.jobSignature();
             StepResult result;
             final int currentStep = jobData.step();
-            JobImpl job = beans.getJobs().get(signature);
+            JobImpl<Context> job = (JobImpl<Context>) beans.getJobs().get(signature);
             if((job == null) ||
                (beans.getRemoteExecutors().thereIsRemoteExecutor(signature) && beans.getContainer().getConfiguration().preferRemoteExecution())) {
                 result = beans.getRemoteExecutors().handle(element);
             }
             else {
-                Step step = job.steps()[currentStep];
+                Step<Context> step = job.steps()[currentStep];
                 jobData.incStepCount();
                 try {
-                    final Object context = element.getContext(Class.forName(jobData.contextClass()));
+                    final Context context = (Context) element.getContext(Class.forName(jobData.contextClass()));
                     if(element.resumeData() != null) {
                         result = step.handle(context, element.getResumeData(Class.forName(jobData.resumeDataClass())));
                     }
@@ -168,7 +182,8 @@ public class Executor extends StoppableBase {
             switch (result.getStepResultEnum()) {
                 case DONE:
                     if(thereIsANewStep(jobData, result.getStepIncrement())) {
-                        jobData.setStep(currentStep + 1);
+                        jobData.setStep(currentStep + result.getStepIncrement());
+                        jobData.setRetries(0);
                         beans.getJobTools().prepareJobDataForRunning(jobData);
                         beans.getSender().send(element);
                     }
@@ -193,7 +208,7 @@ public class Executor extends StoppableBase {
                     beans.getSender().send(element);
                     break;
                 default:
-                    logger.error("Unsupported Step Result: ", result);
+                    logger.error("Unsupported Step Result: {}", result);
             }
             if(nextOne != null) {
                 logger.info("Starting grouped Job: {}", nextOne.jobData());

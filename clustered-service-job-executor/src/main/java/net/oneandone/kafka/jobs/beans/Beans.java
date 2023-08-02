@@ -33,7 +33,7 @@ public class Beans extends StoppableBase {
     private final JobsPendingHandler jobsPendingHandler;
     private final BlockingDeque<TransportImpl> queue;
     private final Map<String, JobDataState> jobDataStates;
-    private final Map<String, JobImpl> jobs;
+    private final Map<String, JobImpl<?>> jobs;
     private final Map<String, JobDataState> jobDataCorrelationIds;
     private final JobTools jobTools;
     private final MetricCounts metricCounts;
@@ -144,7 +144,7 @@ public class Beans extends StoppableBase {
      *
      * @return the registered jobs by signature
      */
-    public Map<String, JobImpl> getJobs() {
+    public Map<String, JobImpl<?>> getJobs() {
         return jobs;
     }
 
@@ -178,7 +178,7 @@ public class Beans extends StoppableBase {
         node.shutdown();
         reviver.setShutDown();
         receiver.setShutDown();
-        Future queueWaiter = container.submitInThread(() -> {
+        Future<?> queueWaiter = container.submitInThread(() -> {
             while (!queue.isEmpty()) {
                 try {
                     Thread.sleep(10);

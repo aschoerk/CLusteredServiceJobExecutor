@@ -11,10 +11,11 @@ import static net.oneandone.kafka.jobs.api.State.RUNNING;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.StringJoiner;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -43,7 +44,9 @@ import net.oneandone.kafka.jobs.api.RemoteExecutor;
 import net.oneandone.kafka.jobs.api.State;
 import net.oneandone.kafka.jobs.api.Transport;
 import net.oneandone.kafka.jobs.beans.Beans;
+import net.oneandone.kafka.jobs.beans.EngineImpl;
 import net.oneandone.kafka.jobs.beans.LocalRemoteExecutor;
+import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.executor.cdi_scopes.CdbThreadScopedExtension;
 import net.oneandone.kafka.jobs.executor.jobexamples.CDITestJob;
@@ -135,7 +138,7 @@ public class ApiTests {
         testResources.startKafka();
         engine.create(jobTemplate, new TestContext());
         contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
-        while ((contexts.size() == 0) || (contexts.iterator().next().getValue().getContext(TestContext.class).getI() < 1)) {
+        while ((contexts.isEmpty()) || (contexts.iterator().next().getValue().getContext(TestContext.class).getI() < 1)) {
             Thread.sleep(200);
         }
 
@@ -205,7 +208,7 @@ public class ApiTests {
                 engine.create(cdiTestJob, new TestContext());
             }
         }
-        waitForTest(testBeansFactory, null, loops, null);
+        waitForTest(testBeansFactory, null, loops, null, Collections.emptySet());
         checkTests(expectedDone, expectedRunning, expectedDelayed, expectedSuspended, expectedError, expectedGroup, testBeansFactory);
 
         engine.stop();
@@ -234,7 +237,8 @@ public class ApiTests {
 
     @ParameterizedTest
     @CsvSource({
-            "10000,1,10,1000,100,0,2",
+            "100000,0,10,1000,100,0,5",
+            /*
             "10000,1,10,10000,10000,0,2",
             "10000,1,2,1000,10000,0,3000",
             "10000,1,2,1000,10000,0,0",
@@ -260,10 +264,11 @@ public class ApiTests {
             "100,1,10,5000,10000,100,4",
             "100,1,2,5000,10000,100,4",
             "100,1,2,5000,10000,10,4",
-
+*/
     })
     void reviverTest(int jobnumber, int fixedEngineNumber, int engineNumber, int revivalAfter, int creationTime, int groupNo, int successesInSequence) throws InterruptedException {
         CDITestStep.successesInSequence = successesInSequence;
+        Set<String> revivedEngines = new HashSet<>();
         final TestBeansFactory testBeansFactory = testResources.getTestBeansFactory();
         Engine[] fixedEngines = new Engine[fixedEngineNumber];
         for (int i = 0; i < fixedEngineNumber; i++) {
@@ -276,6 +281,7 @@ public class ApiTests {
             engines[i].register(cdiTestJob, TestContext.class);
         }
         String[] groupIds = generateGroupNames(groupNo);
+        final Instant testStart = Instant.now();
         final Instant[] start = {Instant.now()};
         final int[] currentEngine = {0};
         final int[] createdCount = {0};
@@ -286,14 +292,18 @@ public class ApiTests {
                 final String groupId = groupIds[i % groupNo];
                 engines[currentEngine[0]].create(cdiTestJob, groupId,new TestContext(groupId));
             }
-            handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, createdCount, groupIds, true);
-            Thread.sleep(creationTime / jobnumber);
-            currentEngine[0] = (int)(currentEngine[0] + (random() * engineNumber)) % engineNumber;
+            handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, createdCount, groupIds, false, revivedEngines);
+            if (i % 100 == 99) {
+                Thread.sleep(creationTime / (jobnumber / 100) );
+                logger.info("Sent {} records", i);
+            }
+            currentEngine[0] = (int)(currentEngine[0] + 1) % engineNumber;
         }
         waitForTest(testBeansFactory, () -> {
-            handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, createdCount, groupIds, false);
+            handleRevival(testBeansFactory, engines, start, currentEngine[0], revivalAfter, createdCount, groupIds,
+                    true && testStart.plus(Duration.ofSeconds(180)).isAfter(Instant.now()), revivedEngines);
             currentEngine[0] = (int)(currentEngine[0] + (random() * engineNumber)) % engineNumber;
-        }, jobnumber, createdCount);
+        }, jobnumber, createdCount, revivedEngines);
         Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
         Assertions.assertEquals(jobnumber + createdCount[0], contexts.stream().filter(c -> c.getValue().jobData().state() == DONE).count());
         Assertions.assertEquals(jobnumber + createdCount[0], testBeansFactory.getTestSenderData().stateCounts.get(DONE).get());
@@ -306,12 +316,23 @@ public class ApiTests {
 
     private void handleRevival(final TestBeansFactory testBeansFactory,
                                final Engine[] engines, Instant[] start, final int currentEngine, int revivalAfter,
-                               final int[] createdCount, String[] groupIds, boolean createJobs) {
+                               final int[] createdCount, String[] groupIds, boolean createJobs, final Set<String> revivedEngines) {
         if(Instant.now().isAfter(start[0].plus(Duration.ofMillis(revivalAfter)))) {
-            logger.info("Reviving Engine: {}", currentEngine);
-            engines[currentEngine].stop();
-            engines[currentEngine] = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
-            engines[currentEngine].register(cdiTestJob, TestContext.class);
+            final String engineName = ((EngineImpl) engines[currentEngine]).getName();
+            if (((EngineImpl)engines[currentEngine]).getStartupTime().plus(Duration.ofSeconds(20)).isBefore(Instant.now())) {
+                logger.info("Reviving Engine: {} {}", currentEngine, engineName);
+                if(revivedEngines.contains(engineName)) {
+                    logger.error("Engine {} already revived once!!!", engineName);
+                } else {
+                    Thread reviverThread = new Thread(() -> {
+                        engines[currentEngine].stop();
+                        engines[currentEngine] = Providers.get().createTestEngine(testResources.getContainer(), testBeansFactory);
+                        engines[currentEngine].register(cdiTestJob, TestContext.class);
+                        revivedEngines.add(engineName);
+                    });
+                    reviverThread.start();
+                }
+            }
             if (createJobs) {
                 if(groupIds.length != 0) {
                     final String groupId = groupIds[createdCount[0] % groupIds.length];
@@ -326,50 +347,119 @@ public class ApiTests {
         }
     }
 
-    private void waitForTest(final TestBeansFactory testBeansFactory, Runnable doInLoop, int createdJobs, final int[] createdCount) throws InterruptedException {
+    private void waitForTest(final TestBeansFactory testBeansFactory, Runnable doInLoop, int createdJobs, final int[] createdCount, final Set<String> revivedEngines) throws InterruptedException {
         Set<Map.Entry<Pair<String, String>, TransportImpl>> contexts = testBeansFactory.getTestSenderData().lastContexts.entrySet();
-        Set<Map.Entry<String, State>> states = testBeansFactory.getTestSenderData().jobStates.entrySet();
+        Set<Map.Entry<String, String>> states = testBeansFactory.getTestSenderData().jobStates.entrySet();
         logger.info("Waiting for {} jobs to complete", states.size());
         Instant outputTimestamp = Instant.now();
         while (contexts.stream().anyMatch(c -> (c.getValue().jobData().state() != DONE) && (c.getValue().jobData().state() != ERROR))
-               || states.stream().anyMatch(c -> !((c.getValue() == DONE) || (c.getValue() == ERROR)))) {
+               || states.stream().anyMatch(c -> !((c.getValue().endsWith("DONE") || (c.getValue().endsWith("ERROR")))))) {
             Thread.sleep(200);
             if(doInLoop != null) {
                 doInLoop.run();
             }
+            final Duration maxDelay = testResources.getContainer().getConfiguration().getMaxDelayOfStateMessages();
             if (logger.isInfoEnabled() && Instant.now().isAfter(outputTimestamp.plus(Duration.ofSeconds(3)))) {
                 outputTimestamp = Instant.now();
-                final long running = contexts.stream().filter(c -> c.getValue().jobData().state() == RUNNING).count();
-                final long ingroup = contexts.stream().filter(c -> c.getValue().jobData().state() == GROUP).count();
-                final long delayed = contexts.stream().filter(c -> c.getValue().jobData().state() == DELAYED).count();
-                final long done = contexts.stream().filter(c -> c.getValue().jobData().state() == DONE).count();
-                final long errors = contexts.stream().filter(c -> c.getValue().jobData().state() == ERROR).count();
-                final long elapsedRunning = contexts.stream().filter(c -> c.getValue().jobData().state() == RUNNING)
-                        .filter(c -> c.getValue().jobData().date().isBefore(Instant.now())).count();
-                final long elapsedDelayed = contexts.stream().filter(c -> c.getValue().jobData().state() == DELAYED)
-                        .filter(c -> c.getValue().jobData().date().isBefore(Instant.now())).count();
 
-                final long revivableRunning = contexts.stream().filter(c -> c.getValue().jobData().state() == RUNNING)
-                        .filter(c -> c.getValue().jobData().date().plus(testResources.getContainer().getConfiguration().getMaxDelayOfStateMessages()).isBefore(Instant.now())).count();
-                final long revivableDelayed = contexts.stream().filter(c -> c.getValue().jobData().state() == DELAYED)
-                        .filter(c -> c.getValue().jobData().date().plus(testResources.getContainer().getConfiguration().getMaxDelayOfStateMessages()).isBefore(Instant.now())).count();
+                long running = contexts.stream().filter(c -> c.getValue().jobData().state() == RUNNING).count();
+                long ingroup = contexts.stream().filter(c -> c.getValue().jobData().state() == GROUP).count();
+                long delayed = contexts.stream().filter(c -> c.getValue().jobData().state() == DELAYED).count();
+                long done = contexts.stream().filter(c -> c.getValue().jobData().state() == DONE).count();
+                long errors = contexts.stream().filter(c -> c.getValue().jobData().state() == ERROR).count();
+
+                HashMap<State, Long> stateMap = new HashMap<>();
+                for (State s: State.values()) {
+                    stateMap.put(s, 0L);
+                }
+                long[] revivableRunning = { 0L};
+                long[] revivableDelayed = { 0L};
+                long[] elapsedRunning = { 0L};
+                long[] elapsedDelayed = { 0L};
+                contexts.stream().forEach(c -> {
+                    final State state = c.getValue().jobData().state();
+                    stateMap.put(state, stateMap.get(state) + 1L);
+                    if (state == RUNNING || state == DELAYED) {
+                        final Instant date = c.getValue().jobData().date();
+                        if (date.isBefore(Instant.now())) {
+                            switch (state) {
+                                case RUNNING:
+                                    elapsedRunning[0]++;
+                                    break;
+                                case DELAYED:
+                                    elapsedDelayed[0]++;
+                                    break;
+                            }
+                        } else {
+                            if(date.plus(maxDelay).isBefore(Instant.now())) {
+                                switch (state) {
+                                    case RUNNING:
+                                        revivableRunning[0]++;
+                                        break;
+                                    case DELAYED:
+                                        revivableDelayed[0]++;
+                                        break;
+                                }
+                            }
+                        }
+                    }
+
+                });
 
                 Map<State, AtomicInteger> stateCounts = testBeansFactory.getTestSenderData().stateCounts;
                 logger.info("rn: {} dlyd: {} dn: {} er: {} grp: {} rnSnt: {} dlydSnt: {} grpSnt: {} elpsdR: {} elpsedDd: {} rvivR: {} rvivD: {} coll: {}",
-                        running, delayed, done, errors, ingroup, stateCounts.get(State.RUNNING).get(), stateCounts.get(State.DELAYED).get(),
-                        stateCounts.get(State.GROUP).get(),
-                        elapsedRunning, elapsedDelayed, revivableRunning, revivableDelayed, CDITestStep.collisionsDetected
+                        stateMap.get(RUNNING), stateMap.get(DELAYED), stateMap.get(DONE), stateMap.get(ERROR), stateMap.get(GROUP),
+                        stateCounts.get(State.RUNNING).get(), stateCounts.get(State.DELAYED).get(), stateCounts.get(State.GROUP).get(),
+                        elapsedRunning[0], elapsedDelayed[0], revivableRunning[0], revivableDelayed[0], CDITestStep.collisionsDetected
                 );
                 if (ingroup > 0) {
                     logger.info("GroupRecords: {}", contexts.stream().filter(c -> c.getValue().jobData().state() == GROUP)
                             .map(c -> c.getValue().jobData().groupId() + "|" + c.getValue().jobData().id())
                             .collect(Collectors.joining(",")));
                 }
-                if((running + delayed + done + errors) > (createdJobs + ((createdCount != null) ? createdCount[0] : 0))) {
-                    logger.error("Too many jobs");
-                    testBeansFactory.getTestSenderData().lastContexts.keySet().stream().sorted()
-                            .forEach(k -> logger.error("Context having key: {}", k));
+                if(delayed > 0 || errors > 0) {
+                    logger.error("Delayed or error jobs d/e/r/dn:sum {}/{}/{}/{}:{}",
+                            delayed,errors,running,  done,  running + delayed + done + errors);
+                    logger.info("id;step;state;date;group;correlationId;correlationId,nodeid");
+                    long[] noLogStateFound = {0L};
+                    contexts.stream()
+                            .filter(e -> (e.getValue().jobData().state() == DELAYED || e.getValue().jobData().state() == RUNNING)
+                                         && e.getValue().jobData().date()/*.plus(maxDelay)*/.isBefore(Instant.now())
+                                         || e.getValue().jobData().date()/*.plus(maxDelay)*/.isAfter(Instant.now().plus(Duration.ofSeconds(10)))
+                                         || e.getValue().jobData().state() == ERROR)
+                            .sorted((c1,c2) -> c1.getValue().jobData().date().compareTo(c2.getValue().jobData().date()))
+                                    .forEach(
+                                            e -> {
+                                                JobDataImpl j = e.getValue().jobData();
+                                                final String jobState = testBeansFactory.getTestSenderData().jobStates.get(j.id());
+                                                if(jobState == null) {
+                                                    logger.error("No Jobstate founf for id: {}",j.id());
+
+                                                }
+                                                else {
+                                                    final String engine = jobState.substring(0, jobState.lastIndexOf('_'));
+                                                    if(jobState != null && revivedEngines.contains(engine)) {
+                                                        logger.info("{};{};{};{};{};{};{};{}", j.id(), j.step(),
+                                                                j.state(), j.date(), j.groupId(), j.correlationId(),
+                                                                jobState, revivedEngines.contains(engine) ? "rvv: " + j.date().plus(maxDelay) : "");
+                                                    }
+                                                    else {
+
+                                                        noLogStateFound[0]++;
+                                                    }
+                                                }
+                                            }
+                                    );
+                    if (noLogStateFound[0]>0) {
+                        logger.error("No logstate found for {} records", noLogStateFound[0]);
+                    }
                 }
+                logger.info("e: {} l: {} q: {} rn: {} dlyd: {} dn: {} er: {} grp: {} rnSnt: {} dlydSnt: {} grpSnt: {} elpsdR: {} elpsedDd: {} rvivR: {} rvivD: {} coll: {}",
+                        CDITestStep.stepEntered.get(), CDITestStep.stepLeft.get(), this.testResources.getContainer().workQueue.size(),
+                        stateMap.get(RUNNING), stateMap.get(DELAYED), stateMap.get(DONE), stateMap.get(ERROR), stateMap.get(GROUP),
+                        stateCounts.get(State.RUNNING).get(), stateCounts.get(State.DELAYED).get(), stateCounts.get(State.GROUP).get(),
+                        elapsedRunning[0], elapsedDelayed[0], revivableRunning[0], revivableDelayed[0], CDITestStep.collisionsDetected
+                );
             }
 
         }

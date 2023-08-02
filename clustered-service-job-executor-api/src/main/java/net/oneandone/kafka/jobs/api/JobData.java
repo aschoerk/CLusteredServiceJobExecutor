@@ -3,7 +3,7 @@ package net.oneandone.kafka.jobs.api;
 import java.time.Instant;
 
 /**
- * @author aschoerk
+ * Interface describing the maintenance data for a instance of a job to be run.
  */
 public interface JobData {
     /**

@@ -8,16 +8,26 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_INTERVAL
 import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG;
 
+import java.lang.ref.PhantomReference;
+import java.lang.ref.Reference;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import org.apache.commons.lang3.mutable.Mutable;
+import org.apache.commons.lang3.mutable.MutableBoolean;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -45,6 +55,7 @@ public class Receiver extends StoppableBase {
     private AtomicReferenceArray<JobDataState> lastOfPartition;
     private final Map<String, TransportImpl> sentRunning = new ConcurrentHashMap<>();
     private KafkaConsumer<String, String> jobReaderConsumer = null;
+    private KafkaConsumer<String, String> jobMultiReaderConsumer = null;
 
     public Receiver(Beans beans) {
         super(beans);
@@ -53,25 +64,12 @@ public class Receiver extends StoppableBase {
         // jobStates must be received by all nodes.
         consumerConfig.put(GROUP_ID_CONFIG, beans.getEngine().getName());
 
-        stateInitWaitingThread = beans.getContainer().submitInThread(() -> {
-            initThreadName("StateInitWaiter");
-            try {
-                while (!stateInitCompleted) {
-                    Thread.sleep(100);
-                }
-                logger.info("Receiver stateInitCompleted");
-                Receiver.this.stateInitWaitingThread = null;
-                this.jobDataReceiverThread = beans.getContainer().submitInLongRunningThread(() -> {
-                    initThreadName("Data-Receiver");
-                    receiveJobData(getConsumerConfig(beans));
-                });
-                logger.info("Receiver job Data receiving started");
-            } catch (InterruptedException e) {
-                Thread.interrupted();
-            }
+        this.jobDataReceiverThread = beans.getContainer().submitInLongRunningThread(() -> {
+            initThreadName("Data-Receiver");
+            receiveJobData(getConsumerConfig(beans));
         });
+        logger.info("Receiver job Data receiving started");
 
-        consumerConfig.put(MAX_POLL_RECORDS_CONFIG, 1);
         consumerConfig.put(GROUP_ID_CONFIG, beans.getEngine().getName());
     }
 
@@ -80,10 +78,12 @@ public class Receiver extends StoppableBase {
         consumerConfig.put(BOOTSTRAP_SERVERS_CONFIG, beans.getContainer().getBootstrapServers());
         consumerConfig.put(KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumerConfig.put(VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        consumerConfig.put(MAX_POLL_RECORDS_CONFIG, 100);
-        consumerConfig.put(MAX_POLL_INTERVAL_MS_CONFIG, 5000);
+        consumerConfig.put(MAX_POLL_INTERVAL_MS_CONFIG,
+                (int) beans.getContainer().getConfiguration().getConsumerPollInterval().toMillis());
         consumerConfig.put(GROUP_ID_CONFIG, GROUP_ID);
         consumerConfig.put(AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerConfig.put(MAX_POLL_RECORDS_CONFIG,
+                (int) beans.getContainer().getConfiguration().getMaxPollJobDataRecords());
         return consumerConfig;
     }
 
@@ -115,23 +115,20 @@ public class Receiver extends StoppableBase {
     }
 
     private void receiveJobData(final Map<String, Object> syncingConsumerConfig) {
+        logger.info("Starting JobData Receiver for Group: {}", syncingConsumerConfig.get(GROUP_ID_CONFIG));
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(syncingConsumerConfig)) {
             consumer.subscribe(Collections.singleton(beans.getContainer().getJobDataTopicName()));
             while (!doShutDown()) {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
                 for (ConsumerRecord<String, String> r : records) {
                     TransportImpl context = evaluatePackage(r);
+                    final JobDataImpl jobData = context.jobData();
+                    logger.info("E: {} Received jobData for {} id: {} state: {} step: {} stepCount: {}", beans.getEngine().getName(), jobData.jobSignature(), jobData.id(), jobData.state(), jobData.step(), jobData.stepCount());
 
-                    beans.getSender().sendState(context.jobData(), r);
-                    switch (context.jobData().state()) {
+                    beans.getSender().sendState(jobData, r);
+                    switch (jobData.state()) {
                         case RUNNING:
-                            boolean res = false;
-                            try {
-                                res = beans.getQueue().offer(context, 1, TimeUnit.SECONDS);
-                            } catch (InterruptedException e) {
-
-                            }
-                            if(!res) {
+                            if(!beans.getExecutor().executeJob( context)) {
                                 beans.getExecutor().delayJob(context, "Not scheduled in internal queue");
                                 beans.getSender().send(context);
                             }
@@ -191,5 +188,44 @@ public class Receiver extends StoppableBase {
 
     public void setStateInitCompleted() {
         stateInitCompleted = true;
+    }
+
+    public List<TransportImpl> readJobs(final List<Triple<Integer, Long, Long>> minMaxTriples,
+                                        final Map<Integer, List<Pair<Integer, Long>>> statesToRevive) {
+        if(jobMultiReaderConsumer == null) {
+            Map<String, Object> consumerConfig = getConsumerConfig(beans);
+            consumerConfig.put(MAX_POLL_RECORDS_CONFIG, 1000);
+            consumerConfig.put(GROUP_ID_CONFIG, beans.getNode().getUniqueNodeId());
+            jobMultiReaderConsumer = new KafkaConsumer<String, String>(consumerConfig);
+        }
+        Map<Integer, Set<Long>> offsetMap = statesToRevive.entrySet().stream()
+                .map(e -> Pair.of(e.getKey(), e.getValue().stream().map(Pair::getRight).collect(Collectors.toSet())))
+                .collect(Collectors.toList())
+                .stream()
+                .collect(Collectors.toMap(Pair::getLeft, Pair::getRight));
+        ArrayList<TransportImpl> result = new ArrayList<>();
+        for (Triple<Integer, Long, Long> t: minMaxTriples) {
+            Integer partition = t.getLeft();
+            final Set<Long> offsets = offsetMap.get(partition);
+            Long minOffset = t.getMiddle();
+            Long maxOffset = t.getRight();
+            TopicPartition topicPartition = new TopicPartition(beans.getContainer().getJobDataTopicName(), partition);
+            jobMultiReaderConsumer.assign(Collections.singletonList(topicPartition));
+            jobMultiReaderConsumer.seek(topicPartition, minOffset);
+            MutableBoolean partitionReady = new MutableBoolean(false);
+            do {
+                ConsumerRecords<String, String> records = jobMultiReaderConsumer.poll(Duration.ofMillis(1000));
+                for (ConsumerRecord<String, String> r : records.records(topicPartition)) {
+                    if(offsets.contains(r.offset())) {
+                        result.add(evaluatePackage(r));
+                    }
+                    if((r.offset() > maxOffset)) {
+                        partitionReady.setTrue();
+                        break;
+                    }
+                }
+            } while (partitionReady.isFalse() && !doShutDown());
+        }
+        return result;
     }
 }

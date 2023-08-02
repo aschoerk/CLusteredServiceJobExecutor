@@ -18,10 +18,6 @@ public class JobDataState {
     private final String groupId;
 
     /**
-     * only used if correlatonId != null
-     */
-    private final String jobName;
-    /**
      * The id of the currently running job instance
      */
     private final String id;
@@ -57,8 +53,7 @@ public class JobDataState {
     private String sender;
 
     public JobDataState(final String id, final State state, final int partition, final long offset, final Instant date,
-                        final Instant createdAt, final int step, final String correlationId, final String groupId,
-                        final String jobName) {
+                        final Instant createdAt, final int step, final String correlationId, final String groupId) {
         this.id = id;
         this.state = state;
         this.date = date;
@@ -68,17 +63,13 @@ public class JobDataState {
         this.step = step;
         this.correlationId = correlationId;
         this.groupId = groupId;
-        this.jobName = jobName;
     }
 
     public JobDataState(final String id, final State state, final int partition, final long offset, final Instant date,
                         final Instant createdAt, final int step) {
-        this(id, state, partition, offset, date, createdAt, step, null, null, null);
+        this(id, state, partition, offset, date, createdAt, step, null, null);
     }
 
-    public String getJobName() {
-        return jobName;
-    }
 
     public String getCorrelationId() {
         return correlationId;
@@ -155,7 +146,6 @@ public class JobDataState {
                ", createdAt=" + createdAt +
                ", partition=" + partition +
                ", offset=" + offset +
-               ", jobName='" + jobName + '\'' +
                '}';
     }
 

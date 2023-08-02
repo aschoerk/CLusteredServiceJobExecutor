@@ -23,9 +23,12 @@ import net.oneandone.kafka.jobs.executor.cdi_scopes.CdbThreadScoped;
 @CdbThreadScoped
 public class CDITestStep implements Step<TestContext> {
 
-    Logger logger = LoggerFactory.getLogger(this.getClass());
+    Logger logger = LoggerFactory.getLogger("ApiTests");
 
     public static AtomicInteger collisionsDetected = new AtomicInteger();
+
+    public static AtomicLong stepEntered = new AtomicLong();
+    public static AtomicLong stepLeft = new AtomicLong();
     /**
      * Instance variable to check if ThreadScoped is maintained despite encapsulation
      */
@@ -44,6 +47,7 @@ public class CDITestStep implements Step<TestContext> {
     @Override
     public StepResult handle(final TestContext context) {
         int threads = staticThreadCount.incrementAndGet();
+        stepEntered.incrementAndGet();
         try {
             Thread.sleep(random.nextInt(10));
             ApiTests.logger.trace("Handle was called Threads: {} ", threads);
@@ -82,6 +86,7 @@ public class CDITestStep implements Step<TestContext> {
                 }
             }
             ApiTests.logger.trace("Handle was ready  Threads: {} ", threads);
+            stepLeft.incrementAndGet();
         }
 
     }

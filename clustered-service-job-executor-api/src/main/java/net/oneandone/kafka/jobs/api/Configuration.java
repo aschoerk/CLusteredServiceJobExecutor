@@ -64,4 +64,10 @@ public interface Configuration extends net.oneandone.kafka.clusteredjobs.api.Con
     default Duration getMaxTimeToWaitForOtherPartitions() {
         return Duration.ofMillis(5000);
     }
+
+    default int getMaxPollJobDataRecords() { return 100; }
+
+    default Duration getConsumerPollInterval() { return Duration.ofSeconds(5); }
+
+    default int maxPendingJobsPerNode() { return 1000; }
 }

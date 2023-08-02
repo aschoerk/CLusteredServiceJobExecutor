@@ -2,6 +2,7 @@ package net.oneandone.kafka.jobs.beans;
 
 import static net.oneandone.kafka.jobs.api.State.GROUP;
 
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,9 +28,12 @@ public class EngineImpl extends StoppableBase implements Engine {
 
     String name;
 
+    Instant startupTime;
+
     public EngineImpl(Beans beans) {
         super(beans);
-        name = beans.getContainer().getConfiguration().getNodeName() + engineCount.incrementAndGet();
+        this.name = beans.getContainer().getConfiguration().getNodeName() + engineCount.incrementAndGet();
+        this.startupTime = beans.getContainer().getClock().instant();
     }
 
 
@@ -62,7 +66,7 @@ public class EngineImpl extends StoppableBase implements Engine {
     @Override
     public <T> Transport create(final Job<T> job, final String groupId, final T context, String correlationId) {
 
-        JobImpl<T> jobImpl = beans.getJobs().get(job.signature());
+        JobImpl<T> jobImpl = (JobImpl<T>) beans.getJobs().get(job.signature());
 
         if(jobImpl == null) {
             throw new KjeException("expected job first to be registered with executor");
@@ -126,5 +130,9 @@ public class EngineImpl extends StoppableBase implements Engine {
 
     public String createId() {
         return UUID.randomUUID().toString();
+    }
+
+    public Instant getStartupTime() {
+        return startupTime;
     }
 }

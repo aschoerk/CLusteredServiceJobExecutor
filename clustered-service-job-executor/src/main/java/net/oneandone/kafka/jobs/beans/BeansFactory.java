@@ -42,10 +42,10 @@ public class BeansFactory {
     }
 
     public BlockingDeque<TransportImpl> createQueue() {
-        return new LinkedBlockingDeque<>(1000);
+        return new LinkedBlockingDeque<>();
     }
 
-    public Map<String, JobImpl> createJobsMap() {
+    public Map<String, JobImpl<?>> createJobsMap() {
         return new ConcurrentHashMap<>();
     }
     public JobTools createJobTools(Beans beans) {

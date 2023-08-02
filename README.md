@@ -4,7 +4,8 @@ Execute Jobs in a failsafe manner using multiple cluster-nodes/pods synchronized
 Development steps:
 
 
-
+* get rid of State-Record
+* handle resume always like group via ClusteredTask 
 
 * more group tests, implement reviving of groups, 
   * currently groups starter ignores probably older state-records for a group on other partitions

@@ -6,7 +6,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- *
+ * interface implemented by Jobs to be executed
  * @param <Context>  a job specific context.
  *      <ul> <li> All steps of a job need to support the same context.</i>
  *      <li> needs to stay of the same class during complete execution of a job-instance</i>

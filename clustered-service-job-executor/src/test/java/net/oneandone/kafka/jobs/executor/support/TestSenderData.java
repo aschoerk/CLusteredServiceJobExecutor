@@ -2,6 +2,7 @@ package net.oneandone.kafka.jobs.executor.support;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -17,11 +18,13 @@ import net.oneandone.kafka.jobs.dtos.TransportImpl;
 public class TestSenderData {
     public Map<State, AtomicInteger> stateCounts = new HashMap<>();
 
-    public Map<String, State> jobStates = new ConcurrentHashMap<>();
+    public Map<String, String> jobStates = new ConcurrentHashMap<>();
 
     public Map<Pair<String, String>, TransportImpl> lastContexts = new ConcurrentHashMap<>();
 
     public Map<Pair<String, String>, ConsumerRecord> lastConsumerRecordsUsedForState = new ConcurrentHashMap<>();
+
+    public Set<String> stateSendingEngines = ConcurrentHashMap.newKeySet();
 
     public TestSenderData() {
         for (State state: State.values()) {

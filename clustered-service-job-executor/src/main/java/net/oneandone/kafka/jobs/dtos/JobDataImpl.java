@@ -3,9 +3,7 @@ package net.oneandone.kafka.jobs.dtos;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.UUID;
 
-import net.oneandone.kafka.jobs.api.Container;
 import net.oneandone.kafka.jobs.api.JobData;
 import net.oneandone.kafka.jobs.api.Remark;
 import net.oneandone.kafka.jobs.api.State;
@@ -44,7 +42,7 @@ public class JobDataImpl implements JobData {
     private String groupId = null;
 
     public <T> JobDataImpl(JobImpl<T> job, final Class<T> contextClass, String correlationId, String groupId, Beans beans) {
-        this((job.getIdCreator() != null) ? job.getIdCreator().get() : beans.getEngine().createId(),
+        this(createJobDataId(job, beans),
                 correlationId, State.RUNNING, job.signature(), 0, 0);
 
         this.contextClass = contextClass.getCanonicalName();
@@ -60,6 +58,10 @@ public class JobDataImpl implements JobData {
         this.jobSignature = signature;
         this.step = step;
         this.stepCount = stepCount;
+    }
+
+    private static <T> String createJobDataId(final JobImpl<T> job, final Beans beans) {
+        return (job.getIdCreator() != null) ? job.getIdCreator().get() : beans.getEngine().createId();
     }
 
     @Override
@@ -98,7 +100,7 @@ public class JobDataImpl implements JobData {
     }
 
     @Override
-    public int stepCount() { return stepCount; }
+    public int stepCount() {return stepCount;}
 
     @Override
     public String contextClass() {
@@ -119,6 +121,7 @@ public class JobDataImpl implements JobData {
     public void setErrors(final RemarkImpl[] remarks) {
         this.errors = remarks;
     }
+
     public void setComments(final RemarkImpl[] remarks) {
         this.comments = remarks;
     }
@@ -130,7 +133,7 @@ public class JobDataImpl implements JobData {
 
     @Override
     public int retries() {
-        if (retries == null) {
+        if(retries == null) {
             retries = 0;
         }
         return retries;
@@ -158,12 +161,13 @@ public class JobDataImpl implements JobData {
     }
 
     public void addError(Instant instant, String errorId, String error) {
-        if (errors == null) {
+        if(errors == null) {
             errors = new RemarkImpl[1];
-        } else {
+        }
+        else {
             errors = Arrays.copyOf(errors, errors.length + 1);
         }
-        errors[errors.length - 1] = new RemarkImpl(instant, errorId, error );
+        errors[errors.length - 1] = new RemarkImpl(instant, errorId, error);
     }
 
     @Override
