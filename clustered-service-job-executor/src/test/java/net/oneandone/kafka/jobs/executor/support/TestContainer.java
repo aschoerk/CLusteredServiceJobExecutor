@@ -23,7 +23,7 @@ public class TestContainer implements Container {
     private String bootstrapServers;
 
     private final CdbThreadScopedContext cdbThreadScopedContext;
-    public BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<>(10);
+    public BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<>(1000);
 
     BlockingQueue<Runnable> longRunningWorkQueue = new LinkedBlockingQueue<>();
 
@@ -31,6 +31,7 @@ public class TestContainer implements Container {
     ExecutorService executorService;
 
     ExecutorService longRunningThreadExecutorService;
+    private int threadPoolSize;
 
     public TestContainer(final String bootstrapServers,
                          CdbThreadScopedContext cdbThreadScopedContext,
@@ -38,7 +39,7 @@ public class TestContainer implements Container {
         this.bootstrapServers = bootstrapServers;
         this.cdbThreadScopedContext = cdbThreadScopedContext;
         this.clock = clock;
-        executorService = new ThreadPoolExecutor(20, 50, 1,
+        executorService = new ThreadPoolExecutor(200, 200, 1,
                 TimeUnit.MILLISECONDS, workQueue);
         longRunningThreadExecutorService = new ThreadPoolExecutor(100, 300, 100,
                 TimeUnit.MILLISECONDS, longRunningWorkQueue);
@@ -71,7 +72,7 @@ public class TestContainer implements Container {
     }
 
     @Override
-    public Future<?> submitInLongRunningThread(final Runnable runnable) {
+    public Future<?> submitLongRunning(final Runnable runnable) {
         return longRunningThreadExecutorService.submit(runnable);
     }
 
@@ -144,5 +145,12 @@ public class TestContainer implements Container {
 
     public void setBootstrapServers(final String bootstrapServers) {
         this.bootstrapServers = bootstrapServers;
+    }
+
+    public void setThreadPoolSize(final int i) {
+        this.threadPoolSize = i;
+        workQueue = new LinkedBlockingQueue<>(i * 10);
+        executorService = new ThreadPoolExecutor(i, i * 2, 1,
+                TimeUnit.MILLISECONDS, workQueue);
     }
 }

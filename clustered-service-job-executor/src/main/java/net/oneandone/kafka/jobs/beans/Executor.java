@@ -37,7 +37,7 @@ public class Executor extends StoppableBase {
 
     public Executor(final Beans beans) {
         super(beans);
-        dequer = beans.getContainer().submitInLongRunningThread(() -> {
+        dequer = submitLongRunning(() -> {
             initThreadName("Executor");
             setRunning();
             while (!doShutDown()) {

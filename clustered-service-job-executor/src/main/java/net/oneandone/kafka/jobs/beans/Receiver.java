@@ -64,7 +64,7 @@ public class Receiver extends StoppableBase {
         // jobStates must be received by all nodes.
         consumerConfig.put(GROUP_ID_CONFIG, beans.getEngine().getName());
 
-        this.jobDataReceiverThread = beans.getContainer().submitInLongRunningThread(() -> {
+        this.jobDataReceiverThread = submitLongRunning(() -> {
             initThreadName("Data-Receiver");
             receiveJobData(getConsumerConfig(beans));
         });

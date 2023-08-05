@@ -2,11 +2,14 @@ package net.oneandone.kafka.jobs.beans;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +51,7 @@ class StoppableBase implements Stoppable {
     }
 
     protected void waitForThreads(Future ... threads) {
-        beans.getContainer().submitInLongRunningThread(() -> {
+        submitInThread(() -> {
             initThreadName("WaitForThreads", true);
             Arrays.stream(threads).forEach(t ->
             {
@@ -108,6 +111,29 @@ class StoppableBase implements Stoppable {
         logger.trace("Initialized Name {} of Thread with Id: {}", name, Thread.currentThread().getId());
     }
 
+    List<Pair<Future<?>, Runnable>> longRunning = new ArrayList<>();
+
+
+
+    public Future<?> submitLongRunning(final Runnable runnable) {
+        Future<?> f = beans.getContainer().submitLongRunning(runnable);
+        longRunning.add(Pair.of(f, new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    runnable.run();
+                } catch(Throwable thw) {
+                    logger.error("Exception occurred in long running thread",thw);
+                    throw thw;
+                }
+            }
+        }));
+        return f;
+    }
+
+    public Future<?> submitInThread(final Runnable runnable) {
+        return beans.getContainer().submitInThread(runnable);
+    }
     public Beans getBeans() {
         return beans;
     }

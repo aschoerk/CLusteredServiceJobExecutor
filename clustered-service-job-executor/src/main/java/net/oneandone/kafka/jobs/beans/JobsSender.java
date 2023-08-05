@@ -40,6 +40,8 @@ public class JobsSender extends StoppableBase {
         config.put(ProducerConfig.ACKS_CONFIG, "1");
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        config.put(ProducerConfig.LINGER_MS_CONFIG, 500);
+        config.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 20000000 );
 
         setRunning();
     }
@@ -74,10 +76,12 @@ public class JobsSender extends StoppableBase {
 
         futures.removeIf(f -> f.isDone());
 
-        futures.add(getJobDataProducer().send(new ProducerRecord(beans.getContainer().getJobDataTopicName(), jobData.id(), toSend)));
-        if (futures.size() > 100) {
+
+        futures.add(doSend(new ProducerRecord(beans.getContainer().getJobDataTopicName(), jobData.id(), toSend)));
+        if(futures.size() > 100) {
             getJobDataProducer().flush();
         }
+
     }
 
     public void sendState(JobDataImpl jobData, ConsumerRecord r) {
@@ -90,21 +94,36 @@ public class JobsSender extends StoppableBase {
         jobDataState.setSent(beans.getContainer().getClock().instant());
         jobDataState.setSender(beans.getNode().getUniqueNodeId());
         String toSend = JsonMarshaller.gson.toJson(jobDataState);
-        futures.add(getJobDataProducer().send(new ProducerRecord(beans.getContainer().getJobStateTopicName(), jobData.id(), toSend)));
+        futures.removeIf(f -> f.isDone());
+        futures.add(doSend(new ProducerRecord(beans.getContainer().getJobStateTopicName(), jobData.id(), toSend)));
+    }
+
+    Future<?> doSend(ProducerRecord<String, String> toSend) {
+        try {
+            return getJobDataProducer().send(toSend);
+        } catch (IllegalStateException e) {
+            jobDataProducer = null;
+            return getJobDataProducer().send(toSend);
+        }
     }
 
     @Override
     public void setShutDown() {
-        super.setShutDown();
-        do {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                Thread.interrupted();
-            }
-            futures.removeIf(f -> f.isDone());
-        } while  (futures.size() > 0);
-        getJobDataProducer().close();
-        setRunning(false);
+        try {
+            super.setShutDown();
+            do {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.interrupted();
+                }
+                futures.removeIf(f -> f.isDone());
+            } while (futures.size() > 0);
+            getJobDataProducer().close();
+        } catch (Exception e) {
+            logger.error("Exception during shutdown", e);
+        } finally {
+            setRunning(false);
+        }
     }
 }

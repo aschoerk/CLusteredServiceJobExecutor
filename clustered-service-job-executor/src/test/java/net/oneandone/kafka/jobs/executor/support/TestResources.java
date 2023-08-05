@@ -1,10 +1,15 @@
 package net.oneandone.kafka.jobs.executor.support;
 
 import java.time.Clock;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.streams.integration.utils.EmbeddedKafkaCluster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,17 +46,32 @@ public class TestResources {
     public void startKafka() throws Exception {
         Properties brokerConfig = new Properties();
 
-        brokerConfig.setProperty(KafkaConfig.ListenersProp(), "PLAINTEXT://localhost:0");
-        cluster = new TestCluster(1, brokerConfig);
-        cluster.start();
-
-        getContainer().setBootstrapServers(cluster.bootstrapServers());
+        brokerConfig.setProperty(KafkaConfig.ListenersProp(), "PLAINTEXT://localhost:9092");
+        // cluster = new TestCluster(1, brokerConfig);
+        // cluster.start();
         Map<String, String> topicConfig = new HashMap<>();
         topicConfig.put("retention.ms", Integer.toString(12 * 3600 * 1000));
-        cluster.deleteTopicsAndWait(10000, getContainer().getJobDataTopicName(), getContainer().getJobStateTopicName(), getContainer().getSyncTopicName());
-        cluster.createTopic(getContainer().getJobDataTopicName(), 2, 1, topicConfig);
-        cluster.createTopic(getContainer().getJobStateTopicName(), 2, 1, topicConfig);
-        cluster.createTopic(getContainer().getSyncTopicName(), 1, 1, topicConfig);
+
+        if (cluster != null) {
+            getContainer().setBootstrapServers(cluster.bootstrapServers());
+            cluster.deleteTopicsAndWait(10000, getContainer().getJobDataTopicName(), getContainer().getJobStateTopicName(), getContainer().getSyncTopicName());
+            cluster.createTopic(getContainer().getJobDataTopicName(), 2, 1, topicConfig);
+            cluster.createTopic(getContainer().getJobStateTopicName(), 2, 1, topicConfig);
+            cluster.createTopic(getContainer().getSyncTopicName(), 1, 1, topicConfig);
+        } else {
+            getContainer().setBootstrapServers("localhost:9092");
+            Properties props = new Properties();
+            props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+            try (AdminClient adminClient = AdminClient.create(props)) {
+                adminClient.deleteTopics(Arrays.asList(getContainer().getJobDataTopicName(), getContainer().getJobStateTopicName(), getContainer().getSyncTopicName()));
+                adminClient.createTopics(
+                        Arrays.asList(new NewTopic(getContainer().getJobDataTopicName(), 2, (short)1),
+                        new NewTopic(getContainer().getJobStateTopicName(), 2, (short)1),
+                        new NewTopic(getContainer().getSyncTopicName(), 1, (short)1)) );
+            }
+
+        }
+
     }
 
 

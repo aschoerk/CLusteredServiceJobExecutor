@@ -54,7 +54,7 @@ public class ClusteredJobReviver extends StoppableBase implements ClusterTask {
         // jobStates must be received by all nodes.
         stateInitCompleted = false;
         consumerConfig.put(GROUP_ID_CONFIG, beans.getNode().getUniqueNodeId());
-        this.jobStateReceiverThread = beans.getContainer().submitInLongRunningThread(() -> {
+        this.jobStateReceiverThread = submitLongRunning(() -> {
             initThreadName("State-Receiver");
             consumerConfig.put(GROUP_ID_CONFIG, beans.getNode().getUniqueNodeId());
             consumerConfig.put("max.poll.records", beans.getContainer().getConfiguration().getMaxPollJobDataRecords());

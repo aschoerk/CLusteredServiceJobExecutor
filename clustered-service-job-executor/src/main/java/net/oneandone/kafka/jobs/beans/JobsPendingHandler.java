@@ -38,7 +38,7 @@ public class JobsPendingHandler extends StoppableBase {
 
     public JobsPendingHandler(final Beans beans) {
         super(beans);
-        pendingHandlerThread = beans.getContainer().submitInLongRunningThread(
+        pendingHandlerThread = submitLongRunning(
                 () -> run()
         );
     }

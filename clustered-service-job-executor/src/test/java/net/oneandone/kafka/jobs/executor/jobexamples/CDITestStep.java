@@ -44,6 +44,15 @@ public class CDITestStep implements Step<TestContext> {
 
     public static int successesInSequence = 4;
 
+    public static void initStatics() {
+        successesInSequence = 4;
+        handlingGroups.clear();
+        callCount.set(0);
+        stepLeft.set(0);
+        stepEntered.set(0);
+        collisionsDetected.set(0);
+    }
+
     @Override
     public StepResult handle(final TestContext context) {
         int threads = staticThreadCount.incrementAndGet();

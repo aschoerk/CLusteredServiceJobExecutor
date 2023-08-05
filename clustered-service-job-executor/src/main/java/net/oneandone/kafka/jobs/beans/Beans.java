@@ -191,6 +191,7 @@ public class Beans extends StoppableBase {
         executor.setShutDown();
         waitForStoppables(receiver, executor, reviver);
         jobsPendingHandler.setShutDown();
+        waitForStoppables(jobsPendingHandler);
         this.stopStoppables(engine, jobTools, jobsSender, metricCounts, remoteExecutors);
     }
 
