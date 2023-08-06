@@ -1,5 +1,13 @@
 package net.oneandone.kafka.jobs.executor;
 
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.HashMap;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -8,6 +16,7 @@ import org.mockito.Mockito;
 
 import net.oneandone.kafka.jobs.api.Container;
 import net.oneandone.kafka.jobs.api.State;
+import net.oneandone.kafka.jobs.beans.Beans;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.RemarkImpl;
 import net.oneandone.kafka.jobs.tools.JsonMarshaller;
@@ -26,7 +35,12 @@ public class JsonMarshallerTest {
             "idxx,RUNNING,signatur,0",
             "idxx,RUNNING,signatur,0"})
     void simpleJobDataImpl(String id, State state, String signature, int step) {
-        JobDataImpl jobData = new JobDataImpl(id,null,state,signature,step, 0);
+        Instant now = Instant.now();
+        Beans beans = mock(Beans.class);
+        Container container = mock(Container.class);
+        doReturn(container).when(beans).getContainer();
+        doReturn(Clock.fixed(now, ZoneId.of("CET"))).when(container).getClock();
+        JobDataImpl jobData = new JobDataImpl(id,null,state,signature,step, 0, beans);
         jobData.setErrors(new RemarkImpl[0]);
         jobData.setComments(new RemarkImpl[0]);
         String json = JsonMarshaller.gson.toJson(jobData);

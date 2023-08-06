@@ -70,4 +70,6 @@ public interface Configuration extends net.oneandone.kafka.clusteredjobs.api.Con
     default Duration getConsumerPollInterval() { return Duration.ofSeconds(5); }
 
     default int maxPendingJobsPerNode() { return 1000; }
+
+    default int getMaxRecordsToReadByRandomAccess() { return 10; }
 }

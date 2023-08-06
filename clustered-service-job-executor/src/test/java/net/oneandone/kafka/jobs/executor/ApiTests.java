@@ -171,10 +171,8 @@ public class ApiTests {
 
     @ParameterizedTest
     @CsvSource({
-            "false,10000,10000,20000,0,0,0,0,0,0",
             "false,1,1,2,0,0,0,0,0,0",
             "false,2,2,4,0,0,0,0,0,0",
-
             "false,1000,1000,2000,0,0,0,0,0,0",
             "true,1,1,2,0,0,0,0,0,2",
             "true,1,1,2,0,0,0,1,1,4",
@@ -198,7 +196,8 @@ public class ApiTests {
             "true,100,100,249,49,0,0,30,100,4",
             "true,100,100,249,49,0,0,10,100,4",
             "false,100,100,249,49,0,0,20,100,4",
-            "false,100,100,249,49,0,0,5,100,4"}
+            "false,100,100,249,49,0,0,5,100,4",
+            "false,10000,10000,20000,0,0,0,0,0,0",}
     )
     void cdiTest(boolean doremote, int loops, int expectedDone, int expectedRunning, int expectedDelayed,
                  int expectedSuspended, int expectedError, int groupNo, int expectedGroup, int successesInSequence) throws InterruptedException {
@@ -240,9 +239,7 @@ public class ApiTests {
 
     @ParameterizedTest
     @CsvSource({
-            "500000,0,10,1000,100,0,50",
-
-            /*"10000,1,10,10000,10000,0,2",
+            "10000,1,10,10000,10000,0,2",
             "10000,1,2,1000,10000,0,3000",
             "10000,1,2,1000,10000,0,0",
             "10000,1,2,3000,10000,0,4",
@@ -266,7 +263,7 @@ public class ApiTests {
             "100,1,10,5000,10000,10,4",
             "100,1,10,5000,10000,100,4",
             "100,1,2,5000,10000,100,4",
-            "100,1,2,5000,10000,10,4",*/
+            "100,1,2,5000,10000,10,4",
 
     })
     void reviverTest(int jobnumber, int fixedEngineNumber, int engineNumber, int revivalAfter, int creationTime,

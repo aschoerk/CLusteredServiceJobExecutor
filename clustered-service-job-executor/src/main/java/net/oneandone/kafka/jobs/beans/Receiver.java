@@ -96,7 +96,7 @@ public class Receiver extends StoppableBase {
                 latestGroupChange = act;
             }
             else {
-                if((act != null) && act.getSent().isAfter(latestGroupChange.getSent())) {
+                if((act != null) && act.getCreatedAt().isAfter(latestGroupChange.getCreatedAt())) {
                     latestGroupChange = act;
                 }
             }
@@ -116,54 +116,45 @@ public class Receiver extends StoppableBase {
 
     private void receiveJobData(final Map<String, Object> syncingConsumerConfig) {
         logger.info("Starting JobData Receiver for Group: {}", syncingConsumerConfig.get(GROUP_ID_CONFIG));
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(syncingConsumerConfig)) {
+        try (KafkaConsumer<String, String> consumer = beans.createConsumer(syncingConsumerConfig)) {
             consumer.subscribe(Collections.singleton(beans.getContainer().getJobDataTopicName()));
             while (!doShutDown()) {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
                 for (ConsumerRecord<String, String> r : records) {
-                    TransportImpl context = evaluatePackage(r);
-                    final JobDataImpl jobData = context.jobData();
-                    logger.info("E: {} Received jobData for {} id: {} state: {} step: {} stepCount: {}", beans.getEngine().getName(), jobData.jobSignature(), jobData.id(), jobData.state(), jobData.step(), jobData.stepCount());
-
-                    beans.getSender().sendState(jobData, r);
-                    switch (jobData.state()) {
-                        case RUNNING:
-                            if(!beans.getExecutor().executeJob( context)) {
-                                beans.getExecutor().delayJob(context, "Not scheduled in internal queue");
-                                beans.getSender().send(context);
-                            }
-                            break;
-                        case DELAYED:
-                            beans.getPendingHandler().schedulePending(context);
-                            // this node got the task to reschedule the job as soon as date is
-                            break;
-                        case ERROR:
-                            break;
-                    }
-
+                    TransportImpl transport = beans.getJobTools().evaluatePackage(r);
+                    handleSingleRecord(transport);
                 }
             }
         }
     }
 
+    protected void handleSingleRecord(final TransportImpl transport) {
+        final JobDataImpl jobData = transport.jobData();
+        logger.info("E: {} Received jobData for {} id: {} state: {} step: {} stepCount: {}", beans.getEngine().getName(), jobData.jobSignature(), jobData.id(), jobData.state(), jobData.step(), jobData.stepCount());
 
-    private TransportImpl evaluatePackage(final ConsumerRecord<String, String> r) {
-        String json = r.value();
-        String[] resultString = json.split(JobsSender.SEPARATORREGEX);
-        JobDataImpl jobData = JsonMarshaller.gson.fromJson(resultString[0], JobDataImpl.class);
-        TransportImpl context = new TransportImpl(jobData, resultString[1], beans);
-        if(resultString.length == 3) {
-            context.setResumeData(resultString[2]);
+        switch (jobData.state()) {
+            case RUNNING:
+                if(!beans.getExecutor().executeJob( transport)) {
+                    beans.getExecutor().delayJob(transport, "Not scheduled in internal queue");
+                    beans.getSender().send(transport);
+                }
+                break;
+            case DELAYED:
+                beans.getPendingHandler().schedulePending(transport);
+                // this node got the task to reschedule the job as soon as date is
+                break;
+            case ERROR:
+                break;
         }
-        return context;
     }
+
 
     public TransportImpl readJob(final JobDataState state) {
         if(jobReaderConsumer == null) {
             Map<String, Object> consumerConfig = getConsumerConfig(beans);
             consumerConfig.put(MAX_POLL_RECORDS_CONFIG, 1);
             consumerConfig.put(GROUP_ID_CONFIG, beans.getNode().getUniqueNodeId());
-            jobReaderConsumer = new KafkaConsumer<String, String>(consumerConfig);
+            jobReaderConsumer = beans.createConsumer(consumerConfig);
         }
         TopicPartition topicPartition = new TopicPartition(beans.getContainer().getJobDataTopicName(), state.getPartition());
         jobReaderConsumer.assign(Collections.singletonList(topicPartition));
@@ -174,7 +165,7 @@ public class Receiver extends StoppableBase {
             found = !records.isEmpty();
             Optional<ConsumerRecord<String, String>> optionalR = records.records(topicPartition).stream().filter(r -> r.offset() == state.getOffset()).findAny();
             if(optionalR.isPresent()) {
-                TransportImpl context = evaluatePackage(optionalR.get());
+                TransportImpl context = beans.getJobTools().evaluatePackage(optionalR.get());
                 return context;
             }
         } while (found && !doShutDown());
@@ -196,7 +187,7 @@ public class Receiver extends StoppableBase {
             Map<String, Object> consumerConfig = getConsumerConfig(beans);
             consumerConfig.put(MAX_POLL_RECORDS_CONFIG, 1000);
             consumerConfig.put(GROUP_ID_CONFIG, beans.getNode().getUniqueNodeId());
-            jobMultiReaderConsumer = new KafkaConsumer<String, String>(consumerConfig);
+            jobMultiReaderConsumer = beans.createConsumer(consumerConfig);
         }
         Map<Integer, Set<Long>> offsetMap = statesToRevive.entrySet().stream()
                 .map(e -> Pair.of(e.getKey(), e.getValue().stream().map(Pair::getRight).collect(Collectors.toSet())))
@@ -217,7 +208,7 @@ public class Receiver extends StoppableBase {
                 ConsumerRecords<String, String> records = jobMultiReaderConsumer.poll(Duration.ofMillis(1000));
                 for (ConsumerRecord<String, String> r : records.records(topicPartition)) {
                     if(offsets.contains(r.offset())) {
-                        result.add(evaluatePackage(r));
+                        result.add(beans.getJobTools().evaluatePackage(r));
                     }
                     if((r.offset() > maxOffset)) {
                         partitionReady.setTrue();

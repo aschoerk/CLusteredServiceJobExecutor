@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Future;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -24,8 +25,7 @@ import net.oneandone.kafka.jobs.tools.JsonMarshaller;
  */
 public class JobsSender extends StoppableBase {
 
-    static final String SEPARATOR = "\n|||SEPARATOR|||\n";
-    static final String SEPARATORREGEX = "\n\\|\\|\\|SEPARATOR\\|\\|\\|\n";
+
 
     private final Map<String, Object> config;
 
@@ -48,55 +48,28 @@ public class JobsSender extends StoppableBase {
 
     private KafkaProducer getJobDataProducer() {
         if(jobDataProducer == null) {
-            this.jobDataProducer = new KafkaProducer(config);
+            this.jobDataProducer = beans.createProducer(config);
         }
         return jobDataProducer;
     }
 
     public <T> void send(TransportImpl context) {
-
         final JobDataImpl jobData = context.jobData();
-        logger.info("E: {} Sending jobData for {} id: {} state: {} step: {} stepCount: {}", beans.getEngine().getName(), jobData.jobSignature(), jobData.id(), jobData.state(), jobData.step(), jobData.stepCount());
-        String jobDataJson = JsonMarshaller.gson.toJson(jobData);
+        logger.info("E: {} Sending jobData for {} id: {} state: {} step: {} stepCount: {}", beans.getEngine().getName(),
+                jobData.jobSignature(), jobData.id(), jobData.state(), jobData.step(), jobData.stepCount());
 
-        String contextJson = context.context();
-
-        if(jobDataJson.contains(SEPARATOR) || ((contextJson != null) && contextJson.contains(SEPARATOR))) {
-            throw new KjeException("Could not send separator " + SEPARATOR + " containing strings" + jobDataJson + " and " + contextJson);
-        }
-        String toSend = String.format("%s%s%s", jobDataJson, SEPARATOR, context.context());
-        final String resumeData = context.resumeData();
-
-        if(resumeData != null) {
-            if(resumeData.contains(SEPARATOR) || ((contextJson != null) && resumeData.contains(SEPARATOR))) {
-                throw new KjeException("Could not send separator " + SEPARATOR + " containing strings" + jobDataJson + " and " + resumeData);
-            }
-            toSend = toSend + SEPARATOR + resumeData;
-        }
+        Pair<String, String> payload = beans.getJobTools().prepareKafkaKeyValue(context);
 
         futures.removeIf(f -> f.isDone());
 
-
-        futures.add(doSend(new ProducerRecord(beans.getContainer().getJobDataTopicName(), jobData.id(), toSend)));
+        futures.add(doSend(new ProducerRecord(beans.getContainer().getJobDataTopicName(), payload.getKey(), payload.getValue())));
         if(futures.size() > 100) {
             getJobDataProducer().flush();
         }
 
     }
 
-    public void sendState(JobDataImpl jobData, ConsumerRecord r) {
-        logger.info("E: {} Sending state for {} ", beans.getEngine().getName(), jobData);
 
-        futures.removeIf(f -> f.isDone());
-        JobDataState jobDataState = new JobDataState(jobData.id(), jobData.state(),
-                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.step(), jobData.correlationId(), jobData.groupId());
-        logger.info("Beans: {} Sending state record: {}", beans.getEngine().getName(), jobDataState);
-        jobDataState.setSent(beans.getContainer().getClock().instant());
-        jobDataState.setSender(beans.getNode().getUniqueNodeId());
-        String toSend = JsonMarshaller.gson.toJson(jobDataState);
-        futures.removeIf(f -> f.isDone());
-        futures.add(doSend(new ProducerRecord(beans.getContainer().getJobStateTopicName(), jobData.id(), toSend)));
-    }
 
     Future<?> doSend(ProducerRecord<String, String> toSend) {
         try {

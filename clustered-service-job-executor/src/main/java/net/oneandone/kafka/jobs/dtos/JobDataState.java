@@ -3,6 +3,9 @@ package net.oneandone.kafka.jobs.dtos;
 import java.time.Instant;
 import java.util.Objects;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+
+import net.oneandone.kafka.jobs.api.JobData;
 import net.oneandone.kafka.jobs.api.State;
 
 /**
@@ -49,8 +52,10 @@ public class JobDataState {
      */
     private final long offset;
 
-    private Instant sent;
-    private String sender;
+    public JobDataState(JobData jobData,  final ConsumerRecord<String, String> r) {
+        this(jobData.id(), jobData.state(),
+                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.step(), jobData.correlationId(), jobData.groupId());
+    }
 
     public JobDataState(final String id, final State state, final int partition, final long offset, final Instant date,
                         final Instant createdAt, final int step, final String correlationId, final String groupId) {
@@ -70,6 +75,13 @@ public class JobDataState {
         this(id, state, partition, offset, date, createdAt, step, null, null);
     }
 
+    public int compareGroupJobs(JobDataState j) {
+        if (createdAt.equals(j.createdAt)) {
+            return String.CASE_INSENSITIVE_ORDER.compare(this.id, j.getId());
+        } else {
+            return createdAt.compareTo(j.getCreatedAt());
+        }
+    }
 
     public String getCorrelationId() {
         return correlationId;
@@ -107,14 +119,6 @@ public class JobDataState {
         return createdAt;
     }
 
-    public Instant getSent() {
-        return sent;
-    }
-
-    public void setSent(final Instant sent) {
-        this.sent = sent;
-    }
-
     @Override
     public boolean equals(final Object o) {
         if(this == o) {
@@ -137,23 +141,14 @@ public class JobDataState {
         return "JobDataState{" +
                "correlationId='" + correlationId + '\'' +
                ", id='" + id + '\'' +
-               ", sent=" + sent +
                ", state=" + state +
                ", step=" + step +
                ", date=" + date +
                ", groupId='" + groupId + '\'' +
-               ", sender='" + sender + '\'' +
                ", createdAt=" + createdAt +
                ", partition=" + partition +
                ", offset=" + offset +
                '}';
     }
 
-    public String getSender() {
-        return sender;
-    }
-
-    public void setSender(final String nodeName) {
-        this.sender = nodeName;
-    }
 }

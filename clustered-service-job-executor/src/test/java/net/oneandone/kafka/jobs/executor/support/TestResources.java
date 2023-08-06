@@ -54,19 +54,17 @@ public class TestResources {
 
         if (cluster != null) {
             getContainer().setBootstrapServers(cluster.bootstrapServers());
-            cluster.deleteTopicsAndWait(10000, getContainer().getJobDataTopicName(), getContainer().getJobStateTopicName(), getContainer().getSyncTopicName());
+            cluster.deleteTopicsAndWait(10000, getContainer().getJobDataTopicName(), getContainer().getSyncTopicName());
             cluster.createTopic(getContainer().getJobDataTopicName(), 2, 1, topicConfig);
-            cluster.createTopic(getContainer().getJobStateTopicName(), 2, 1, topicConfig);
             cluster.createTopic(getContainer().getSyncTopicName(), 1, 1, topicConfig);
         } else {
             getContainer().setBootstrapServers("localhost:9092");
             Properties props = new Properties();
             props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
             try (AdminClient adminClient = AdminClient.create(props)) {
-                adminClient.deleteTopics(Arrays.asList(getContainer().getJobDataTopicName(), getContainer().getJobStateTopicName(), getContainer().getSyncTopicName()));
+                adminClient.deleteTopics(Arrays.asList(getContainer().getJobDataTopicName(), getContainer().getSyncTopicName()));
                 adminClient.createTopics(
                         Arrays.asList(new NewTopic(getContainer().getJobDataTopicName(), 2, (short)1),
-                        new NewTopic(getContainer().getJobStateTopicName(), 2, (short)1),
                         new NewTopic(getContainer().getSyncTopicName(), 1, (short)1)) );
             }
 

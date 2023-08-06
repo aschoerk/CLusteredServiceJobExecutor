@@ -22,8 +22,6 @@ public class TestSenderData {
 
     public Map<Pair<String, String>, TransportImpl> lastContexts = new ConcurrentHashMap<>();
 
-    public Map<Pair<String, String>, ConsumerRecord> lastConsumerRecordsUsedForState = new ConcurrentHashMap<>();
-
     public Set<String> stateSendingEngines = ConcurrentHashMap.newKeySet();
 
     public TestSenderData() {

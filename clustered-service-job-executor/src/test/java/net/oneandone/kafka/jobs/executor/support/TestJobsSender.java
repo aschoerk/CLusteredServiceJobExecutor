@@ -32,16 +32,5 @@ public class TestJobsSender extends JobsSender {
         super.send(context);
     }
 
-    @Override
-    public void sendState(final JobDataImpl jobData, final ConsumerRecord r) {
-        data.lastConsumerRecordsUsedForState.put(Pair.of(jobData.contextClass(), jobData.id()), r);
-        data.stateCounts.get(jobData.state()).incrementAndGet();
-        if (!data.stateSendingEngines.contains(beans.getEngine().getName())) {
-            data.stateSendingEngines.add(beans.getEngine().getName());
-            logger.error("new state sending engine: {}",beans.getEngine().getName());
-        }
-        data.jobStates.put(jobData.id(), beans.getEngine().getName() + "_" + jobData.state());
-        super.sendState(jobData, r);
-    }
 
 }

@@ -24,11 +24,6 @@ public interface Container extends net.oneandone.kafka.clusteredjobs.api.Contain
      */
     default String getJobDataTopicName() { return "JobDataTopic"; }
 
-    /**
-     * the name of the topic where the current state of jobs is persisted
-     * @return the name of the topic where the current state of jobs is persisted
-     */
-    default String getJobStateTopicName() { return "JobStateTopic"; }
 
     /**
      * the kafka bootstrapservers

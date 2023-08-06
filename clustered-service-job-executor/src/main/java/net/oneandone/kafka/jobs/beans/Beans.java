@@ -9,6 +9,9 @@ import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+
 import net.oneandone.kafka.clusteredjobs.NodeFactory;
 import net.oneandone.kafka.clusteredjobs.api.ClusterTask;
 import net.oneandone.kafka.clusteredjobs.api.Node;
@@ -41,7 +44,6 @@ public class Beans extends StoppableBase {
     int count;
     private final RemoteExecutors remoteExecutors;
     private final Map<String, Queue<JobDataState>> statesByGroup;
-    private final Set<String> jobsCreatedByThisNodeForGroup;
     private final Node node;
     private final NodeFactory nodeFactory;
 
@@ -64,7 +66,6 @@ public class Beans extends StoppableBase {
         this.remoteExecutors = beansFactory.createRemoteExecutors(this);
         this.reviver = beansFactory.createReviver(this);
         this.statesByGroup = beansFactory.creatStatesByGroup();
-        this.jobsCreatedByThisNodeForGroup = beansFactory.createJobsCreatedByThisNodeForGroup();
         this.nodeFactory = beansFactory.createNodeFactory();
         this.node = beansFactory.createNode(container, nodeFactory);
         this.node.run();
@@ -105,10 +106,6 @@ public class Beans extends StoppableBase {
 
     public Map<String, Queue<JobDataState>> getStatesByGroup() {
         return statesByGroup;
-    }
-
-    public Set<String> getGroupJobsResponsibleFor() {
-        return jobsCreatedByThisNodeForGroup;
     }
 
     public Container getContainer() {
@@ -197,5 +194,13 @@ public class Beans extends StoppableBase {
 
     public ClusteredJobReviver getReviver() {
         return reviver;
+    }
+
+    public KafkaConsumer<String, String> createConsumer(Map<String, Object> config) {
+        return new KafkaConsumer<>(config);
+    }
+
+    public KafkaProducer<String, String> createProducer(Map<String, Object> config) {
+        return new KafkaProducer<>(config);
     }
 }

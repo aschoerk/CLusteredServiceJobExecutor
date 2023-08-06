@@ -43,7 +43,7 @@ public class JobDataImpl implements JobData {
 
     public <T> JobDataImpl(JobImpl<T> job, final Class<T> contextClass, String correlationId, String groupId, Beans beans) {
         this(createJobDataId(job, beans),
-                correlationId, State.RUNNING, job.signature(), 0, 0);
+                correlationId, State.RUNNING, job.signature(), 0, 0, beans);
 
         this.contextClass = contextClass.getCanonicalName();
         this.createdAt = beans.getContainer().getClock().instant();
@@ -51,13 +51,14 @@ public class JobDataImpl implements JobData {
     }
 
     public JobDataImpl(final String id, final String correlationId, final State state, final String signature,
-                       final int step, final int stepCount) {
+                       final int step, final int stepCount, Beans beans) {
         this.id = id;
         this.correlationId = correlationId;
         this.state = state;
         this.jobSignature = signature;
         this.step = step;
         this.stepCount = stepCount;
+        this.createdAt = beans.getContainer().getClock().instant();
     }
 
     private static <T> String createJobDataId(final JobImpl<T> job, final Beans beans) {
@@ -226,5 +227,9 @@ public class JobDataImpl implements JobData {
 
     public void setCorrelationId(final String correlationId) {
         this.correlationId = correlationId;
+    }
+
+    public void setGroup(final String groupId) {
+        this.groupId = groupId;
     }
 }

@@ -104,9 +104,6 @@ public class Executor extends StoppableBase {
         logger.info("Stop Job({}): {}/{}", jobData.id(), beans.getJobs().get(jobData.jobSignature()).name(), jobData.step());
         jobData.setDate(beans.getContainer().getClock().instant());
         beans.getJobTools().changeStateTo(jobData, DONE);
-        if(jobData.groupId() != null) {
-            beans.getGroupJobsResponsibleFor().add(jobData.id());
-        }
         return null;
     }
 
@@ -115,9 +112,6 @@ public class Executor extends StoppableBase {
         final JobDataImpl jobData = context.jobData();
         jobData.addError(beans.getContainer().getClock().instant(), null, error);
         beans.getJobTools().changeStateTo(jobData, ERROR);
-        if(jobData.groupId() != null) {
-            beans.getGroupJobsResponsibleFor().add(jobData.id());
-        }
     }
 
     void delayJob(TransportImpl context, String error) {

@@ -5,6 +5,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,6 +15,8 @@ import net.oneandone.kafka.jobs.beans.ClusteredJobReviver;
 import net.oneandone.kafka.jobs.beans.EngineImpl;
 import net.oneandone.kafka.jobs.beans.JobsPendingHandler;
 import net.oneandone.kafka.jobs.beans.JobsSender;
+import net.oneandone.kafka.jobs.beans.Receiver;
+import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 
 /**
@@ -84,6 +87,23 @@ public class TestBeansFactory extends BeansFactory {
                 super.sortedPending.stream().forEach(sp -> {
                     logger.info("E: {} rescued: {}", sp.jobData());
                 });
+            }
+        };
+    }
+
+    @Override
+    public Receiver createReceiver(final Beans beans) {
+        return new Receiver(beans) {
+            @Override
+            protected void handleSingleRecord(final TransportImpl transport) {
+                JobDataImpl jobData = transport.jobData();
+                testSenderData.stateCounts.get(jobData.state()).incrementAndGet();
+                if (!testSenderData.stateSendingEngines.contains(beans.getEngine().getName())) {
+                    testSenderData.stateSendingEngines.add(beans.getEngine().getName());
+                    logger.error("new state sending engine: {}",beans.getEngine().getName());
+                }
+                testSenderData.jobStates.put(jobData.id(), beans.getEngine().getName() + "_" + jobData.state());
+                super.handleSingleRecord(transport);
             }
         };
     }
