@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,7 +33,6 @@ public class Beans extends StoppableBase {
     private final JobsSender jobsSender;
     private final Receiver receiver;
     private final JobsPendingHandler jobsPendingHandler;
-    private final BlockingDeque<TransportImpl> queue;
     private final Map<String, JobDataState> jobDataStates;
     private final Map<String, JobImpl<?>> jobs;
     private final Map<String, JobDataState> jobDataCorrelationIds;
@@ -43,7 +41,7 @@ public class Beans extends StoppableBase {
     private final ClusteredJobReviver reviver;
     int count;
     private final RemoteExecutors remoteExecutors;
-    private final Map<String, Queue<JobDataState>> statesByGroup;
+    private final Map<String, Queue<String>> statesByGroup;
     private final Node node;
     private final NodeFactory nodeFactory;
 
@@ -51,11 +49,12 @@ public class Beans extends StoppableBase {
         super(null);
         this.container = container;
         this.count = beanCounter.incrementAndGet();
-
-        jobs = beansFactory.createJobsMap();
-        queue = beansFactory.createQueue();
+        this.jobs = beansFactory.createJobsMap();
         jobDataStates = beansFactory.createJobDataStates();
         jobDataCorrelationIds = beansFactory.createJobDataCorrelationIds();
+        this.nodeFactory = beansFactory.createNodeFactory();
+        this.node = beansFactory.createNode(container, nodeFactory);
+        this.node.run();
         this.engine = beansFactory.createEngine(this);
         this.executor = beansFactory.createExecutor(this);
         this.jobsSender = beansFactory.createSender(this);
@@ -65,10 +64,9 @@ public class Beans extends StoppableBase {
         this.metricCounts = beansFactory.createMetricCounts(this);
         this.remoteExecutors = beansFactory.createRemoteExecutors(this);
         this.reviver = beansFactory.createReviver(this);
-        this.statesByGroup = beansFactory.creatStatesByGroup();
-        this.nodeFactory = beansFactory.createNodeFactory();
-        this.node = beansFactory.createNode(container, nodeFactory);
-        this.node.run();
+        this.statesByGroup = beansFactory.createStatesByGroup();
+
+
 
         TaskDefinition reviverDef = new TaskDefaults() {
 
@@ -104,7 +102,7 @@ public class Beans extends StoppableBase {
         return jobDataCorrelationIds;
     }
 
-    public Map<String, Queue<JobDataState>> getStatesByGroup() {
+    public Map<String, Queue<String>> getStatesByGroup() {
         return statesByGroup;
     }
 
@@ -130,10 +128,6 @@ public class Beans extends StoppableBase {
 
     public JobsPendingHandler getPendingHandler() {
         return jobsPendingHandler;
-    }
-
-    public BlockingDeque<TransportImpl> getQueue() {
-        return queue;
     }
 
     /**
@@ -175,21 +169,12 @@ public class Beans extends StoppableBase {
         node.shutdown();
         reviver.setShutDown();
         receiver.setShutDown();
-        Future<?> queueWaiter = container.submitInThread(() -> {
-            while (!queue.isEmpty()) {
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        });
-        waitForThreads(queueWaiter);
         executor.setShutDown();
         waitForStoppables(receiver, executor, reviver);
         jobsPendingHandler.setShutDown();
         waitForStoppables(jobsPendingHandler);
         this.stopStoppables(engine, jobTools, jobsSender, metricCounts, remoteExecutors);
+        setRunning(false);
     }
 
     public ClusteredJobReviver getReviver() {
@@ -202,5 +187,13 @@ public class Beans extends StoppableBase {
 
     public KafkaProducer<String, String> createProducer(Map<String, Object> config) {
         return new KafkaProducer<>(config);
+    }
+
+    public String getNodeId() {
+        if (node != null) {
+            return node.getUniqueNodeId();
+        } else {
+            return "Beans" + count;
+        }
     }
 }

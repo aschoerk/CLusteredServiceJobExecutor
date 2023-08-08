@@ -14,8 +14,10 @@ import org.slf4j.LoggerFactory;
 
 import net.oneandone.kafka.jobs.api.Step;
 import net.oneandone.kafka.jobs.api.StepResult;
+import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.executor.ApiTests;
 import net.oneandone.kafka.jobs.executor.cdi_scopes.CdbThreadScoped;
+import net.oneandone.kafka.jobs.implementations.StepImpl;
 
 /**
  * @author aschoerk
@@ -57,9 +59,16 @@ public class CDITestStep implements Step<TestContext> {
     public StepResult handle(final TestContext context) {
         int threads = staticThreadCount.incrementAndGet();
         stepEntered.incrementAndGet();
+        final JobDataImpl jobData = StepImpl.getJobData();
         try {
             Thread.sleep(random.nextInt(10));
             ApiTests.logger.trace("Handle was called Threads: {} ", threads);
+            if (context.groupId != null) {
+                ApiTests.logger.trace("Starting E: {} grouped {} id: {} step: {} retry: {} part:  {} offs: {} ",
+                        StepImpl.getBeans().getNodeId(),
+                        context.groupId, jobData.id(), jobData.step(), jobData.retries(), jobData.getPartition(),
+                        jobData.getOffset());
+            }
             if(!used.compareAndSet(false, true)) {
                 collisionsDetected.incrementAndGet();
                 logger.error("Collision in entering threadscoped Step");
@@ -80,7 +89,8 @@ public class CDITestStep implements Step<TestContext> {
             } else {
                 return StepResult.DONE;
             }
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
+            logger.error("Exception in CDITestStep", e);
             throw new RuntimeException(e);
         } finally {
             staticThreadCount.decrementAndGet();
@@ -90,9 +100,16 @@ public class CDITestStep implements Step<TestContext> {
             }
             if (context.groupId != null) {
                 String res = handlingGroups.remove(context.groupId);
-                if (!res.equals(Thread.currentThread().getName())) {
+                if (res == null) {
+                    logger.error("Expected GroupEntry, {} not there anymore",context.groupId);
+                } else if (!res.equals(Thread.currentThread().getName())) {
                     logger.error("Group Entry changed meanwhile to {}",res);
                 }
+                ApiTests.logger.trace("Ended E:{}  grouped {} id: {} step {} retry: {} part:  {} offs: {}",
+                        StepImpl.getBeans().getNodeId(),
+                        context.groupId,
+                        jobData.id(), jobData.step(), jobData.retries(), jobData.getPartition(),
+                        jobData.getOffset());
             }
             ApiTests.logger.trace("Handle was ready  Threads: {} ", threads);
             stepLeft.incrementAndGet();

@@ -9,7 +9,7 @@ public class TestContext {
     String groupId = null;
 
     public TestContext() {
-        this.groupId = groupId;
+
     }
 
     public TestContext(final String groupId) {

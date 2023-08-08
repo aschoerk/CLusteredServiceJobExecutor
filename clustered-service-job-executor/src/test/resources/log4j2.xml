@@ -14,6 +14,9 @@
         <Logger name="net.oneandone.kafka.jobs" level="WARN" additivity="false">
             <AppenderRef ref="InterceptingAppender"/>
         </Logger>
+        <Logger name="net.oneandone.kafka.jobs.beans.ClusteredJobReviver" level="TRACE" additivity="false">
+            <AppenderRef ref="InterceptingAppender"/>
+        </Logger>
         <Logger name="net.oneandone.kafka.clusteredjobs" level="WARN" additivity="false">
             <AppenderRef ref="InterceptingAppender"/>
         </Logger>

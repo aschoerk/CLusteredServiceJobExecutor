@@ -49,7 +49,7 @@ public class JobsPendingHandler extends StoppableBase {
      */
     public void schedulePending(final TransportImpl e) {
         logger.info("Node: {} Scheduling JobData: {} in {} milliseconds",
-                beans.getNode().getUniqueNodeId(),
+                beans.getNodeId(),
                 e.jobData().id(),
                 Duration.between(Instant.now(),e.jobData().date()).toMillis());
         removePending(e.jobData().id(), false);
@@ -115,10 +115,10 @@ public class JobsPendingHandler extends StoppableBase {
                 }
             } catch (InterruptedException e) {
                 if (!doShutDown()) {
-                    logger.error("JobsPendingHandler N: {} got interrupted {}", beans.getNode().getUniqueNodeId(), e);
+                    logger.error("JobsPendingHandler N: {} got interrupted {}", beans.getNodeId(), e);
                 }
                 else {
-                    logger.info("JobsPendingHandler N: {} got interrupted {}", beans.getNode().getUniqueNodeId(), e);
+                    logger.info("JobsPendingHandler N: {} got interrupted {}", beans.getNodeId(), e);
                 }
             }
         }

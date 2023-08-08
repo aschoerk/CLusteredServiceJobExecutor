@@ -166,11 +166,16 @@ public class ApiTests {
         HashMap<String, Job> tmpMap = new HashMap<>();
         tmpMap.put(job.signature(), new JobImpl(job, TestContext.class, beans));
         Mockito.doReturn(tmpMap).when(beans).getJobs();
+        Mockito.doReturn("RemoteNode" + Thread.currentThread().getName()).when(beans).getNodeId();
         return new LocalRemoteExecutor(beans);
     }
 
     @ParameterizedTest
     @CsvSource({
+            "false,100,100,249,49,0,0,3,100,4",
+            "false,100,100,249,49,0,0,30,100,4",
+            "false,100,100,249,49,0,0,10,100,4",
+
             "false,1,1,2,0,0,0,0,0,0",
             "false,2,2,4,0,0,0,0,0,0",
             "false,1000,1000,2000,0,0,0,0,0,0",
@@ -212,7 +217,8 @@ public class ApiTests {
         for (int i = 0; i < loops; i++) {
             Thread.sleep(10);
             if(groupNo > 0) {
-                engine.create(cdiTestJob, groups[i % groupNo], new TestContext(groups[i % groupNo]));
+                final String groupid = groups[i % groupNo];
+                engine.create(cdiTestJob, groupid, new TestContext(groupid));
             }
             else {
                 engine.create(cdiTestJob, new TestContext());
@@ -239,6 +245,8 @@ public class ApiTests {
 
     @ParameterizedTest
     @CsvSource({
+            "10000,1,10,100000000,10000,100,100",
+
             "10000,1,10,10000,10000,0,2",
             "10000,1,2,1000,10000,0,3000",
             "10000,1,2,1000,10000,0,0",
@@ -450,13 +458,13 @@ public class ApiTests {
                         stateCounts.get(State.RUNNING).get(), stateCounts.get(State.DELAYED).get(), stateCounts.get(State.GROUP).get(),
                         elapsedRunning[0], elapsedDelayed[0], revivableRunning[0], revivableDelayed[0], CDITestStep.collisionsDetected
                 );
-                if(ingroup > 0) {
+                if(ingroup > 0 && ingroup < 30) {
                     logger.info("GroupRecords: {}", contexts.stream().filter(c -> c.getValue().jobData().state() == GROUP)
                             .map(c -> c.getValue().jobData().groupId() + "|" + c.getValue().jobData().id())
                             .collect(Collectors.joining(",")));
                 }
                 if(delayed > 0 || errors > 0) {
-                    logger.error("Delayed or error jobs d/e/r/dn:sum {}/{}/{}/{}:{}",
+                    logger.warn("Delayed or error jobs d/e/r/dn:sum {}/{}/{}/{}:{}",
                             delayed, errors, running, done, running + delayed + done + errors);
                     logger.info("id;step;state;date;group;correlationId;correlationId,nodeid");
                     Map<String, Long> elapsedOnLiveEngines = new HashMap<>();
@@ -507,5 +515,6 @@ public class ApiTests {
             }
 
         }
+        logger.info("Ready waiting for test");
     }
 }

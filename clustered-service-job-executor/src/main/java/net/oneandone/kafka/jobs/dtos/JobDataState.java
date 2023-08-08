@@ -37,7 +37,7 @@ public class JobDataState {
      * DELAYED: the expected timestamp when the job should get rescheduled
      * SUSPENDED: the expected timestamp when the suspended job should get rescheduled if no resume occurred.
      */
-    private final Instant date;
+    private Instant date;
 
     /**
      * the timestamp, the job was created at.
@@ -52,9 +52,10 @@ public class JobDataState {
      */
     private final long offset;
 
-    public JobDataState(JobData jobData,  final ConsumerRecord<String, String> r) {
+    public JobDataState(JobDataImpl jobData) {
         this(jobData.id(), jobData.state(),
-                r.partition(), r.offset(), jobData.date(), jobData.createdAt(), jobData.step(), jobData.correlationId(), jobData.groupId());
+                jobData.getPartition(), jobData.getOffset(),
+                jobData.date(), jobData.createdAt(), jobData.step(), jobData.correlationId(), jobData.groupId());
     }
 
     public JobDataState(final String id, final State state, final int partition, final long offset, final Instant date,
@@ -75,13 +76,7 @@ public class JobDataState {
         this(id, state, partition, offset, date, createdAt, step, null, null);
     }
 
-    public int compareGroupJobs(JobDataState j) {
-        if (createdAt.equals(j.createdAt)) {
-            return String.CASE_INSENSITIVE_ORDER.compare(this.id, j.getId());
-        } else {
-            return createdAt.compareTo(j.getCreatedAt());
-        }
-    }
+
 
     public String getCorrelationId() {
         return correlationId;
@@ -151,4 +146,7 @@ public class JobDataState {
                '}';
     }
 
+    public void setDate(final Instant instant) {
+        this.date = instant;
+    }
 }

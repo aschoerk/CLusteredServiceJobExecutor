@@ -112,6 +112,8 @@ public class JobTools extends StoppableBase {
 
 
         JobDataImpl jobData = JsonMarshaller.gson.fromJson(jobDataJson, JobDataImpl.class);
+        jobData.setOffset(r.offset());
+        jobData.setPartition(r.partition());
         TransportImpl result = new TransportImpl(jobData, fixString(context), beans);
         result.setResumeData(fixString(resumeData));
         return result;

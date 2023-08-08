@@ -13,6 +13,7 @@ import java.util.Random;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import net.oneandone.kafka.jobs.api.Configuration;
 import net.oneandone.kafka.jobs.api.JobData;
@@ -23,53 +24,48 @@ import net.oneandone.kafka.jobs.api.exceptions.UnRecoverable;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
+import net.oneandone.kafka.jobs.implementations.StepImpl;
 
 /**
  * @author aschoerk
  */
 public class Executor extends StoppableBase {
 
-
     static Random random = new Random();
     private final List<Future<?>> currentFutures = new LinkedList<>();
 
-    Future<?> dequer;
-
     public Executor(final Beans beans) {
         super(beans);
-        dequer = submitLongRunning(() -> {
-            initThreadName("Executor");
-            setRunning();
-            while (!doShutDown()) {
-                try {
-                    final TransportImpl element = beans.getQueue().pollLast(500, TimeUnit.MILLISECONDS);
-                    if (!executeJob(element)) {
-                        delayJob(element, "no thread left");
-                        beans.getSender().send(element);
-                    };
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
     }
 
     public boolean executeJob(final TransportImpl element) {
-        currentFutures.removeIf(f -> f.isDone() || f.isCancelled());
-        if (currentFutures.size() > beans.getContainer().getConfiguration().maxPendingJobsPerNode()) {
-            return false;
-        } else {
-            try {
-                Future<?> future = beans.getContainer().submitInThread(
-                        () -> processStep(element)
-                );
-                if(future.isCancelled()) {
-                    logger.error("Future is cancelled");
-                }
-                currentFutures.add(future);
-                return true;
-            } catch (RejectedExecutionException e) {
+        if (!usedByThread.compareAndSet(false, true)) {
+            throw new KjeException("not expected in multipleThreads");
+        }
+        try {
+            final List<Future<?>> toRemove = currentFutures
+                    .stream().filter(f -> f.isDone() || f.isCancelled()).collect(Collectors.toList());
+            currentFutures.removeAll(toRemove);
+            if(currentFutures.size() > beans.getContainer().getConfiguration().maxPendingJobsPerNode()) {
                 return false;
+            }
+            else {
+                try {
+                    Future<?> future = beans.getContainer().submitInThread(
+                            () -> processStep(element)
+                    );
+                    if(future.isCancelled()) {
+                        logger.error("Future is cancelled");
+                    }
+                    currentFutures.add(future);
+                    return true;
+                } catch (RejectedExecutionException e) {
+                    return false;
+                }
+            }
+        } finally {
+            if (!usedByThread.compareAndSet(true, false)) {
+                throw new KjeException("Not expected in multiple threads");
             }
         }
     }
@@ -77,7 +73,6 @@ public class Executor extends StoppableBase {
     @Override
     public void setShutDown() {
         super.setShutDown();
-        waitForThreads(dequer);
     }
 
     public long randomizedPeriod(long maxWaitTime) {
@@ -157,15 +152,15 @@ public class Executor extends StoppableBase {
                 result = beans.getRemoteExecutors().handle(element);
             }
             else {
-                Step<Context> step = job.steps()[currentStep];
+                StepImpl<Context> step = (StepImpl<Context>) job.steps()[currentStep];
                 jobData.incStepCount();
                 try {
                     final Context context = (Context) element.getContext(Class.forName(jobData.contextClass()));
                     if(element.resumeData() != null) {
-                        result = step.handle(context, element.getResumeData(Class.forName(jobData.resumeDataClass())));
+                        result = step.callHandle(beans, jobData, context, element.getResumeData(Class.forName(jobData.resumeDataClass())));
                     }
                     else {
-                        result = step.handle(context);
+                        result = step.callHandle(beans, jobData, context);
                     }
                     element.setContext(context);
                 } catch (ClassNotFoundException cne) {

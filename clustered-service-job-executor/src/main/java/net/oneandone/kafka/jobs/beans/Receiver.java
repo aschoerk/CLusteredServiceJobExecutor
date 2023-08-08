@@ -130,7 +130,10 @@ public class Receiver extends StoppableBase {
 
     protected void handleSingleRecord(final TransportImpl transport) {
         final JobDataImpl jobData = transport.jobData();
-        logger.info("E: {} Received jobData for {} id: {} state: {} step: {} stepCount: {}", beans.getEngine().getName(), jobData.jobSignature(), jobData.id(), jobData.state(), jobData.step(), jobData.stepCount());
+        logger.trace("E: {} Received jobData for {} id: {} partition: {} offset: {} state: {} step: {} stepCount: {}",
+                beans.getEngine().getName(), jobData.jobSignature(), jobData.id(),
+                jobData.getPartition(), jobData.getOffset(),
+                jobData.state(), jobData.step(), jobData.stepCount());
 
         switch (jobData.state()) {
             case RUNNING:
@@ -153,7 +156,7 @@ public class Receiver extends StoppableBase {
         if(jobReaderConsumer == null) {
             Map<String, Object> consumerConfig = getConsumerConfig(beans);
             consumerConfig.put(MAX_POLL_RECORDS_CONFIG, 1);
-            consumerConfig.put(GROUP_ID_CONFIG, beans.getNode().getUniqueNodeId());
+            consumerConfig.put(GROUP_ID_CONFIG, beans.getNodeId());
             jobReaderConsumer = beans.createConsumer(consumerConfig);
         }
         TopicPartition topicPartition = new TopicPartition(beans.getContainer().getJobDataTopicName(), state.getPartition());
@@ -166,6 +169,7 @@ public class Receiver extends StoppableBase {
             Optional<ConsumerRecord<String, String>> optionalR = records.records(topicPartition).stream().filter(r -> r.offset() == state.getOffset()).findAny();
             if(optionalR.isPresent()) {
                 TransportImpl context = beans.getJobTools().evaluatePackage(optionalR.get());
+                state.setDate(beans.getContainer().getClock().instant());
                 return context;
             }
         } while (found && !doShutDown());
@@ -186,7 +190,7 @@ public class Receiver extends StoppableBase {
         if(jobMultiReaderConsumer == null) {
             Map<String, Object> consumerConfig = getConsumerConfig(beans);
             consumerConfig.put(MAX_POLL_RECORDS_CONFIG, 1000);
-            consumerConfig.put(GROUP_ID_CONFIG, beans.getNode().getUniqueNodeId());
+            consumerConfig.put(GROUP_ID_CONFIG, beans.getNodeId());
             jobMultiReaderConsumer = beans.createConsumer(consumerConfig);
         }
         Map<Integer, Set<Long>> offsetMap = statesToRevive.entrySet().stream()

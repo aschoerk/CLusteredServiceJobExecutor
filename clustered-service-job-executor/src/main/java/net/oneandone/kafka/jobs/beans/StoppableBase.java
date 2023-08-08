@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -18,6 +19,8 @@ import org.slf4j.LoggerFactory;
  */
 class StoppableBase implements Stoppable {
     private static final AtomicInteger threadIx = new AtomicInteger();
+
+    protected final AtomicBoolean usedByThread = new AtomicBoolean();
 
     protected Beans beans;
     Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -116,18 +119,19 @@ class StoppableBase implements Stoppable {
 
 
     public Future<?> submitLongRunning(final Runnable runnable) {
-        Future<?> f = beans.getContainer().submitLongRunning(runnable);
-        longRunning.add(Pair.of(f, new Runnable() {
+        Runnable encapsulated = new Runnable() {
             @Override
             public void run() {
                 try {
                     runnable.run();
-                } catch(Throwable thw) {
-                    logger.error("Exception occurred in long running thread",thw);
+                } catch (Throwable thw) {
+                    logger.error("Exception occurred in long running thread", thw);
                     throw thw;
                 }
             }
-        }));
+        };
+        Future<?> f = beans.getContainer().submitLongRunning(encapsulated);
+        longRunning.add(Pair.of(f, encapsulated));
         return f;
     }
 

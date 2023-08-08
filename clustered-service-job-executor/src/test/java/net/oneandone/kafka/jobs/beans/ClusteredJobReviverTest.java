@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -279,11 +280,15 @@ public class ClusteredJobReviverTest {
         Beans beans;
         private Map<String, TransportImpl> transports = new HashMap<>();
 
+        private Map<String, JobDataState> states = new HashMap<>();
+
+        private Map<String, Queue<String>> statesByGroup = new HashMap<>();
+
         public BeansMocks() {
             now = Instant.now();
             beans = mock(Beans.class);
-            doReturn(new HashMap<>()).when(beans).getJobDataStates();
-            doReturn(new HashMap<>()).when(beans).getStatesByGroup();
+            doReturn(states).when(beans).getJobDataStates();
+            doReturn(statesByGroup).when(beans).getStatesByGroup();
             container = mock(Container.class);
             configuration = mock(Configuration.class);
             doReturn(configuration).when(container).getConfiguration();

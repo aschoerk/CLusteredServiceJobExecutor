@@ -20,14 +20,14 @@ public class ProvidersImpl implements Providers {
     @Override
     public synchronized Engine createEngine(Container container) {
         Beans beans = new Beans(container, new BeansFactory());
-        nodes.put(beans.getNode().getUniqueNodeId(), beans);
+        nodes.put(beans.getNodeId(), beans);
         return beans.getEngine();
     }
 
     @Override
     public synchronized Engine createTestEngine(Container container, Object beansFactory) {
         Beans beans = new Beans(container, (BeansFactory) beansFactory);
-        nodes.put(beans.getNode().getUniqueNodeId(), beans);
+        nodes.put(beans.getNodeId(), beans);
         return beans.getEngine();
     }
 }

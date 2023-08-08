@@ -7,6 +7,7 @@ import net.oneandone.kafka.jobs.api.StepResult;
 import net.oneandone.kafka.jobs.api.Transport;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
+import net.oneandone.kafka.jobs.implementations.StepImpl;
 
 /**
  * @author aschoerk
@@ -39,10 +40,13 @@ public class LocalRemoteExecutor implements RemoteExecutor {
             }
             if((jobData.step() >= 0) && (jobData.step() < job.steps().length)) {
                 if(transport.resumeData() != null) {
-                    return job.steps()[jobData.step()].handle(transportImpl.getContext(Class.forName(jobData.contextClass())), transportImpl.getResumeData(Class.forName(jobData.resumeDataClass())));
+                    return ((StepImpl) job.steps()[jobData.step()]).callHandle(beans,
+                            transportImpl.jobData(), transportImpl.getContext(Class.forName(jobData.contextClass())),
+                            transportImpl.getResumeData(Class.forName(jobData.resumeDataClass())));
                 }
                 else {
-                    return job.steps()[jobData.step()].handle(transportImpl.getContext(Class.forName(jobData.contextClass())));
+                    return ((StepImpl) job.steps()[jobData.step()]).callHandle(beans,
+                            transportImpl.jobData(),transportImpl.getContext(Class.forName(jobData.contextClass())));
                 }
             }
             else {

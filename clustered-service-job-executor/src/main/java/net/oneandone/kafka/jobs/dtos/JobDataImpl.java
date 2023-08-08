@@ -41,6 +41,26 @@ public class JobDataImpl implements JobData {
     private RemarkImpl[] comments = null;
     private String groupId = null;
 
+    private transient int partition;
+
+    private transient long offset;
+
+    public int getPartition() {
+        return partition;
+    }
+
+    public void setPartition(final int partition) {
+        this.partition = partition;
+    }
+
+    public long getOffset() {
+        return offset;
+    }
+
+    public void setOffset(final long offset) {
+        this.offset = offset;
+    }
+
     public <T> JobDataImpl(JobImpl<T> job, final Class<T> contextClass, String correlationId, String groupId, Beans beans) {
         this(createJobDataId(job, beans),
                 correlationId, State.RUNNING, job.signature(), 0, 0, beans);

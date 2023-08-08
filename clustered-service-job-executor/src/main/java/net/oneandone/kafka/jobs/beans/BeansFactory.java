@@ -41,10 +41,6 @@ public class BeansFactory {
         return new JobsPendingHandler(beans);
     }
 
-    public BlockingDeque<TransportImpl> createQueue() {
-        return new LinkedBlockingDeque<>();
-    }
-
     public Map<String, JobImpl<?>> createJobsMap() {
         return new ConcurrentHashMap<>();
     }
@@ -66,7 +62,7 @@ public class BeansFactory {
 
     public ClusteredJobReviver createReviver(final Beans beans) { return new ClusteredJobReviver(beans); }
 
-    public Map<String, Queue<JobDataState>> creatStatesByGroup() {
+    public Map<String, Queue<String>> createStatesByGroup() {
         return new ConcurrentHashMap<>();
     }
 

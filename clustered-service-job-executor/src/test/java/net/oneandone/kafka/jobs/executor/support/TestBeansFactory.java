@@ -108,11 +108,6 @@ public class TestBeansFactory extends BeansFactory {
         };
     }
 
-    @Override
-    public BlockingDeque<TransportImpl> createQueue() {
-        return new LinkedBlockingDeque<>(1000);
-    }
-
     public TestSenderData getTestSenderData() {
         return testSenderData;
     }
