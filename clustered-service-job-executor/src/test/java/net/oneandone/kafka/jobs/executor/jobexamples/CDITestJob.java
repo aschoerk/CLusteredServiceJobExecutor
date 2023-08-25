@@ -22,4 +22,9 @@ public class CDITestJob implements Job<TestContext> {
     public Step<TestContext>[] steps() {
         return new Step[]{cdiTestStep, cdiTestStep};
     }
+
+    @Override
+    public String getContextClass() {
+        return TestContext.class.getName();
+    }
 }

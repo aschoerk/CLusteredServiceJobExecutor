@@ -62,7 +62,7 @@ public class ClusteredJobReviverTest {
     private static TransportImpl prepareReceiveRecord(final BeansMocks mocks, int index, Instant recordDate, int partition, State state, Integer group) {
         JobDataImpl jobData = new JobDataImpl(Integer.toString(index), null, state, "sig", 0, 0, mocks.beans);
         if(group != null) {
-            jobData.setGroup(Integer.toString(group));
+            jobData.setGroupId(Integer.toString(group));
         }
         jobData.setDate(recordDate);
         TransportImpl transport = new TransportImpl(jobData, "", mocks.beans);

@@ -1,7 +1,6 @@
 package net.oneandone.kafka.jobs.executor.support;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +27,7 @@ public class TestJobsSender extends JobsSender {
     @Override
     public <T> void send(final TransportImpl context) {
         final JobDataImpl jobData = context.jobData();
-        data.lastContexts.put(Pair.of(jobData.jobSignature(), jobData.id()), context);
+        data.lastContexts.put(Pair.of(jobData.getSignature(), jobData.getId()), context);
         super.send(context);
     }
 

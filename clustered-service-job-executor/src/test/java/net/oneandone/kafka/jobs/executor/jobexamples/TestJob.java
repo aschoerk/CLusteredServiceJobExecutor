@@ -24,13 +24,13 @@ public class TestJob implements Job<TestContext> {
     }
 
     @Override
-    public String name() {
+    public String getName() {
         return "TestJobName";
     }
 
     @Override
-    public String signature() {
-        return name() + "|" + "|" + Arrays.stream(steps()).map(Step::name).collect(Collectors.joining("|"));
+    public String getSignature() {
+        return this.getName() + "|" + "|" + Arrays.stream(steps()).map(Step::name).collect(Collectors.joining("|"));
     }
 
     @Override
@@ -43,5 +43,10 @@ public class TestJob implements Job<TestContext> {
     @Override
     public Supplier<String> getIdCreator() {
         return () -> engine.getBeans().getNodeId() + "_" + ids.incrementAndGet();
+    }
+
+    @Override
+    public String getContextClass() {
+        return TestContext.class.getName();
     }
 }

@@ -1,4 +1,4 @@
-package net.oneandone.kafka.jobs.tools;
+package net.oneandone.kafka.jobs.api.tools;
 
 import java.io.IOException;
 import java.time.Instant;

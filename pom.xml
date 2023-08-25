@@ -31,6 +31,8 @@
     <modules>
         <module>clustered-service-job-executor-api</module>
         <module>clustered-service-job-executor</module>
+        <module>clustered-service-job-executor-spring</module>
+        <module>clustered-service-job-executor-spring-jobs</module>
     </modules>
 
     <properties>
@@ -43,7 +45,7 @@
         <gson.version>2.10.1</gson.version>
         <kafka.version>3.5.1</kafka.version>
         <scala.version>2.13</scala.version>
-        <kafka-clustered-task-scheduler.version>0.0.6-SNAPSHOT</kafka-clustered-task-scheduler.version>
+        <kafka-clustered-task-scheduler.version>0.0.8-SNAPSHOT</kafka-clustered-task-scheduler.version>
 
         <!-- test -->
         <mockito.version>5.3.0</mockito.version>
@@ -55,14 +57,11 @@
         <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
         <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
         <maven-gpg-plugin.version>1.6</maven-gpg-plugin.version>
-        <maven-javadoc-plugin.version>3.2.0</maven-javadoc-plugin.version>
         <maven-scm-plugin.version>1.9.5</maven-scm-plugin.version>
         <maven-scm-publish-plugin.version>3.0.0</maven-scm-publish-plugin.version>
         <maven-release-plugin.version>2.5.3</maven-release-plugin.version>
-        <maven-resources-plugin.version>3.1.0</maven-resources-plugin.version>
         <maven-site-plugin.version>3.9.0</maven-site-plugin.version>
         <maven-source-plugin.version>3.2.1</maven-source-plugin.version>
-        <maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
     </properties>
 
     <profiles>
@@ -321,12 +320,12 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <release>11</release>
+                    <release>17</release>
                 </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M9</version>
+                <version>3.1.2</version>
                 <configuration>
                     <redirectTestOutputToFile>true</redirectTestOutputToFile>
                     <forkCount>0.7C</forkCount>

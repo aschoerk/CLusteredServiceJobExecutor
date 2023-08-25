@@ -1,21 +1,25 @@
 package net.oneandone.kafka.jobs.api;
 
-import java.util.Arrays;
-import java.util.stream.Collectors;
-
 /**
  * @author aschoerk
  */
-public interface JobInfo {
-    String name();
+public interface JobInfo<Context> {
+    String getName();
 
-    default String version() { return "1"; }
+    default String getVersion() { return "1"; }
 
     /**
      * a string signifying matching jobs, if name might be the same, but the steps where changed.
      * @return a string signifying matching jobs, if name might be the same, but the steps where changed.
      */
-     String signature();
+     String getSignature();
 
-     int stepNumber();
+     int getStepCount();
+
+    /**
+     * return the context class the steps are using
+     *
+     * @return the context class the steps are using
+     */
+    String getContextClass();
 }

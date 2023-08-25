@@ -1,74 +1,56 @@
 package net.oneandone.kafka.jobs.dtos;
 
-import net.oneandone.kafka.jobs.api.JobData;
 import net.oneandone.kafka.jobs.api.Transport;
+import net.oneandone.kafka.jobs.api.dto.TransportDto;
 import net.oneandone.kafka.jobs.beans.Beans;
-import net.oneandone.kafka.jobs.tools.JsonMarshaller;
+import net.oneandone.kafka.jobs.api.tools.JsonMarshaller;
 
 /**
  * @author aschoerk
  */
-public class TransportImpl implements Transport {
-
-    private final JobData jobData;
-
-    private String context;
-
-    private String resumeData = null;
+public class TransportImpl extends TransportDto implements Transport {
 
     private final Beans beans;
 
     public TransportImpl(final JobDataImpl jobData, final String context, Beans beans) {
-        this.jobData = jobData;
-        this.context = context;
+        this.setJobData(jobData);
+        this.setContext(context);
         this.beans = beans;
     }
 
     public TransportImpl(final JobDataImpl jobData, final Object context, Class<?> clazz, Beans beans) {
-        this.jobData = jobData;
+        this.setJobData(jobData);
         String tmp = beans.getContainer().marshal(context);
         if (tmp == null) {
             tmp = JsonMarshaller.gson.toJson(context);
         }
-        this.context = tmp;
+        this.setContext(tmp);
         this.beans = beans;
     }
 
-    public TransportImpl(Beans beans, final Transport transport) {
-        this.jobData = transport.jobData();
-        this.context = transport.context();
-        this.resumeData = transport.resumeData();
+    public TransportImpl(Beans beans, final TransportDto transport) {
+        this.setJobData(transport.getJobData());
+        this.setContext(transport.context());
+        this.setResumeData(transport.resumeData());
         this.beans = beans;
     }
 
     @Override
     public JobDataImpl jobData() {
-        return (JobDataImpl)jobData;
+        return (JobDataImpl) getJobData();
     }
 
-
-    @Override
-    public String context() {
-        return context;
-    }
-
-    @Override
-    public String resumeData() { return resumeData; }
-
-    public void setResumeData(final String s) {
-        this.resumeData = s;
-    }
 
     public <T> T getContext(Class<T> clazz) {
-        return unmarshall(clazz, context);
+        return unmarshall(clazz, getContext());
     }
 
     public <T> void setContext(Object object) {
-        context = marshall(object);
+        setContext(marshall(object));
     }
 
     public <T> T getResumeData(Class<T> clazz) {
-        return unmarshall(clazz, resumeData);
+        return unmarshall(clazz, resumeData());
     }
 
 

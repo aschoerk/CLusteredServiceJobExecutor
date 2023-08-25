@@ -11,11 +11,11 @@ public interface Engine {
      * @param job the job containing steps which can be executed.
      * @return job and steps adapted to the executor jar.
      */
-    <T> void register(Job<T> job, Class<T> clazz);
+    <T> void register(Job<T> job);
 
     /**
      * register "remote" accessible RemoteJobs
-     * @param jobs information about remote accessible jobs
+     * @param remoteExecutor information about remote accessible jobs
      */
     void register(RemoteExecutor remoteExecutor);
 

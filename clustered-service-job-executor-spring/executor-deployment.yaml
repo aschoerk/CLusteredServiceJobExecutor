@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clustered-service-job-executor-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clustered-service-job-executor
+  template:
+    metadata:
+      labels:
+        app: clustered-service-job-executor
+    spec:
+      containers:
+      - image: clustered-service-job-executor
+        imagePullPolicy: IfNotPresent
+        name: clustered-service-job-executor
+        ports:
+          - containerPort: 8080
+            hostPort: 8080
+          - containerPort: 5005
+            hostPort: 5005
+        env:
+          - name: KAFKA_BOOTSTRAP_SERVERS
+            value: "kafka.kafka-ca1-as.svc.cluster.local:9092"
+          - name: JOBS_SERVER
+            value: clustered-service-jobs-service:8081/api/
+          - name: JOBS_REMOTE_EXECUTORS
+            value: http://clustered-service-jobs-service.default.svc.cluster.local:8081
+

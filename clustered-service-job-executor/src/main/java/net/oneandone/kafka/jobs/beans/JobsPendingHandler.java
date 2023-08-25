@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 
 import net.oneandone.kafka.jobs.api.State;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
-import net.oneandone.kafka.jobs.dtos.JobDataState;
 
 /**
  * @author aschoerk
@@ -31,8 +30,8 @@ public class JobsPendingHandler extends StoppableBase {
     public static class TimestampComparator implements Comparator<TransportImpl> {
         @Override
         public int compare(final TransportImpl o1, final TransportImpl o2) {
-            int result = o1.jobData().date().compareTo(o2.jobData().date());
-            return (result != 0) ? result : o1.jobData().id().compareTo(o2.jobData().id());
+            int result = o1.jobData().getDate().compareTo(o2.jobData().getDate());
+            return (result != 0) ? result : o1.jobData().getId().compareTo(o2.jobData().getId());
         }
     }
 
@@ -50,13 +49,13 @@ public class JobsPendingHandler extends StoppableBase {
     public void schedulePending(final TransportImpl e) {
         logger.info("Node: {} Scheduling JobData: {} in {} milliseconds",
                 beans.getNodeId(),
-                e.jobData().id(),
-                Duration.between(Instant.now(),e.jobData().date()).toMillis());
-        removePending(e.jobData().id(), false);
-        pendingByIdentifier.put(e.jobData().id(), e);
+                e.jobData().getId(),
+                Duration.between(Instant.now(),e.jobData().getDate()).toMillis());
+        removePending(e.jobData().getId(), false);
+        pendingByIdentifier.put(e.jobData().getId(), e);
         sortedPending.add(e);
         synchronized (this) {
-            if(sortedPending.first().equals(e)) {
+            if(sortedPending.size() > 0 && sortedPending.first().equals(e)) {
                 this.notify();
             }
         }
@@ -74,7 +73,7 @@ public class JobsPendingHandler extends StoppableBase {
         if(e != null) {
             boolean result = sortedPending.remove(e);
             if (!result && enforce) {
-                logger.error("Could not remove pending {} ", e.jobData().id());
+                logger.error("Could not remove pending {} ", e.jobData().getId());
             }
         }
     }
@@ -128,7 +127,7 @@ public class JobsPendingHandler extends StoppableBase {
         Duration toWait;
         if(sortedPending.size() > 0) {
             TransportImpl nextTask = sortedPending.first();
-            toWait = Duration.between(beans.getContainer().getClock().instant(), nextTask.jobData().date()).plusMillis(1);
+            toWait = Duration.between(beans.getContainer().getClock().instant(), nextTask.jobData().getDate()).plusMillis(1);
         }
         else {
             toWait = Duration.ofMillis(defaultWaitMillis);
@@ -137,18 +136,18 @@ public class JobsPendingHandler extends StoppableBase {
     }
 
     private void selectAndExecute() {
-        while ((sortedPending.size() > 0) && !sortedPending.first().jobData().date().isAfter(beans.getContainer().getClock().instant())) {
+        while ((sortedPending.size() > 0) && !sortedPending.first().jobData().getDate().isAfter(beans.getContainer().getClock().instant())) {
             TransportImpl pendingTask = sortedPending.first();
             sortedPending.remove(pendingTask);
             logger.info("Executing Pending: {}", pendingTask.jobData());
             try {
-                if(Objects.requireNonNull(pendingTask.jobData().state()) == State.DELAYED) {
+                if(Objects.requireNonNull(pendingTask.jobData().getState()) == State.DELAYED) {
                     beans.getMetricCounts().incWokenUpDelayed();
                     beans.getJobTools().prepareJobDataForRunning(pendingTask.jobData());
                     beans.getSender().send(pendingTask);
                 }
             } catch (Throwable t) {
-                logger.error(String.format("Executing PendingTask: %s Exception:", pendingTask.jobData().id()), t);
+                logger.error(String.format("Executing PendingTask: %s Exception:", pendingTask.jobData().getId()), t);
             }
         }
     }

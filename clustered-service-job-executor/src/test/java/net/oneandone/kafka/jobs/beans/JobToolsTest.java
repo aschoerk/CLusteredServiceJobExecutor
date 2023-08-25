@@ -43,10 +43,10 @@ public class JobToolsTest {
         ConsumerRecord<String, String> record = new ConsumerRecord<String, String>("topic", 1, 1L,
                 pair.getKey(), pair.getValue());
         TransportImpl res = jobTools.evaluatePackage(record);
-        assertEquals(res.jobData().id(), jobData.id());
-        assertEquals(res.jobData().jobSignature(), jobData.jobSignature());
-        assertEquals(res.jobData().step(), jobData.step());
-        assertEquals(res.jobData().stepCount(), jobData.stepCount());
+        assertEquals(res.jobData().getId(), jobData.getId());
+        assertEquals(res.jobData().getSignature(), jobData.getSignature());
+        assertEquals(res.jobData().getStep(), jobData.getStep());
+        assertEquals(res.jobData().getStepCount(), jobData.getStepCount());
         assertEquals(context, res.context());
         assertEquals(resumeData, res.resumeData());
     }

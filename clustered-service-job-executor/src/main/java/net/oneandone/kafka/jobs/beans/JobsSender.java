@@ -8,20 +8,15 @@ import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.serialization.StringSerializer;
 
-import net.oneandone.kafka.jobs.api.KjeException;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
-import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
-import net.oneandone.kafka.jobs.tools.JsonMarshaller;
 
 /**
  * @author aschoerk
@@ -60,7 +55,7 @@ public class JobsSender extends StoppableBase {
     public <T> void send(TransportImpl context) {
         final JobDataImpl jobData = context.jobData();
         logger.trace("E: {} Sending jobData for {} id: {} state: {} step: {} stepCount: {}", beans.getEngine().getName(),
-                jobData.jobSignature(), jobData.id(), jobData.state(), jobData.step(), jobData.stepCount());
+                jobData.getSignature(), jobData.getId(), jobData.getState(), jobData.getStep(), jobData.getStepCount());
 
         Pair<String, String> payload = beans.getJobTools().prepareKafkaKeyValue(context);
 

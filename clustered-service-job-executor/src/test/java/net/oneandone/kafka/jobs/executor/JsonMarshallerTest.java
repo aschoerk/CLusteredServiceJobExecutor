@@ -6,20 +6,18 @@ import static org.mockito.Mockito.mock;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.HashMap;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.Mockito;
 
 import net.oneandone.kafka.jobs.api.Container;
 import net.oneandone.kafka.jobs.api.State;
 import net.oneandone.kafka.jobs.beans.Beans;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.RemarkImpl;
-import net.oneandone.kafka.jobs.tools.JsonMarshaller;
+import net.oneandone.kafka.jobs.api.tools.JsonMarshaller;
 
 /**
  * @author aschoerk

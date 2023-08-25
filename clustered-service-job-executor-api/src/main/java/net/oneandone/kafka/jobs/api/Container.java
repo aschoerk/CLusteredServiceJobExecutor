@@ -2,7 +2,6 @@ package net.oneandone.kafka.jobs.api;
 
 import java.time.Clock;
 import java.util.concurrent.Future;
-import java.util.function.Supplier;
 
 import net.oneandone.kafka.jobs.api.events.Event;
 
@@ -32,6 +31,8 @@ public interface Container extends net.oneandone.kafka.clusteredjobs.api.Contain
      */
     @Override
     String getBootstrapServers();
+
+
 
     /**
      * signal the beginning of a threadusage.
@@ -68,14 +69,14 @@ public interface Container extends net.oneandone.kafka.clusteredjobs.api.Contain
      *
      * @return the clock to be used for Instant-Creation
      */
-    Clock getClock();
+    default Clock getClock() { return Clock.systemUTC(); }
 
     /**
      * return the containers interface for (user)transaction handling
      *
      * @return the containers interface for (user)transaction handling
      */
-    Transaction getTransaction();
+    default Transaction getTransaction() { return null; }
 
     /**
      * fire an Event
@@ -85,23 +86,19 @@ public interface Container extends net.oneandone.kafka.clusteredjobs.api.Contain
     default void fire(Event event) {}
 
     /**
-     * Allows to use the Container-Threadpooling.
+     * Allows to use the Container-Threadpooling. This pool is used exclusively for steps
      * @param runnable The runnable to execute when starting the thread
      * @return the thread created in the container environment
      */
-    Future submitInThread(Runnable runnable);
+    Future submitInWorkerThread(Runnable runnable);
 
 
-    /**
-     * Allows to use the Container-Threadpooling.
-     * @param runnable The runnable to execute when starting the thread
-     * @return the thread created in the container environment
-     */
-    Future submitClusteredTaskThread(Runnable runnable);
 
     @Override
     default Configuration getConfiguration() {
         return new Configuration() {
         };
     }
+
+    default RemoteExecutor[] getRemoteExecutors() { return new RemoteExecutor[0]; }
 }

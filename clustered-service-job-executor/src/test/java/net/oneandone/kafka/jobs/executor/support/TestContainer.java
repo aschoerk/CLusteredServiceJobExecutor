@@ -5,7 +5,6 @@ import java.time.Duration;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -23,14 +22,16 @@ public class TestContainer implements Container {
     private String bootstrapServers;
 
     private final CdbThreadScopedContext cdbThreadScopedContext;
-    public BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<>(1000);
-
+    public BlockingQueue<Runnable> workerThreadQueue = new ArrayBlockingQueue<>(1000);
+    public BlockingQueue<Runnable> shortRunningThreadQueue = new ArrayBlockingQueue<>(100);
     BlockingQueue<Runnable> longRunningWorkQueue = new LinkedBlockingQueue<>();
 
 
-    ExecutorService executorService;
+    ExecutorService workerThreadExecutorService;
 
     ExecutorService longRunningThreadExecutorService;
+
+    ExecutorService shortRunningThreadExecutorService;
     private int threadPoolSize;
 
     public TestContainer(final String bootstrapServers,
@@ -39,8 +40,10 @@ public class TestContainer implements Container {
         this.bootstrapServers = bootstrapServers;
         this.cdbThreadScopedContext = cdbThreadScopedContext;
         this.clock = clock;
-        executorService = new ThreadPoolExecutor(200, 200, 1,
-                TimeUnit.MILLISECONDS, workQueue);
+        workerThreadExecutorService = new ThreadPoolExecutor(200, 200, 1,
+                TimeUnit.MILLISECONDS, workerThreadQueue);
+        shortRunningThreadExecutorService = new ThreadPoolExecutor(20, 500, 1,
+                TimeUnit.MILLISECONDS, shortRunningThreadQueue);
         longRunningThreadExecutorService = new ThreadPoolExecutor(100, 300, 100,
                 TimeUnit.MILLISECONDS, longRunningWorkQueue);
 
@@ -62,13 +65,13 @@ public class TestContainer implements Container {
     }
 
     @Override
-    public Future<?> submitInThread(final Runnable runnable) {
-        return executorService.submit(runnable);
+    public Future<?> submitInWorkerThread(final Runnable runnable) {
+        return workerThreadExecutorService.submit(runnable);
     }
 
     @Override
-    public Future submitClusteredTaskThread(final Runnable runnable) {
-        return longRunningThreadExecutorService.submit(runnable);
+    public Future<?> submitShortRunning(final Runnable runnable) {
+        return shortRunningThreadExecutorService.submit(runnable);
     }
 
     @Override
@@ -147,10 +150,10 @@ public class TestContainer implements Container {
         this.bootstrapServers = bootstrapServers;
     }
 
-    public void setThreadPoolSize(final int i) {
+    public void setWorkerThreadPoolSize(final int i) {
         this.threadPoolSize = i;
-        workQueue = new LinkedBlockingQueue<>(i * 10);
-        executorService = new ThreadPoolExecutor(i, i * 2, 1,
-                TimeUnit.MILLISECONDS, workQueue);
+        workerThreadQueue = new LinkedBlockingQueue<>(i * 10);
+        workerThreadExecutorService = new ThreadPoolExecutor(i, i * 2, 1,
+                TimeUnit.MILLISECONDS, workerThreadQueue);
     }
 }

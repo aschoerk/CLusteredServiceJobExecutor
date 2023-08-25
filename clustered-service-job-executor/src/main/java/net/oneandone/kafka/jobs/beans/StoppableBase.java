@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -124,7 +123,7 @@ class StoppableBase implements Stoppable {
             public void run() {
                 try {
                     runnable.run();
-                } catch (Throwable thw) {
+                } catch (Exception thw) {
                     logger.error("Exception occurred in long running thread", thw);
                     throw thw;
                 }
@@ -136,7 +135,7 @@ class StoppableBase implements Stoppable {
     }
 
     public Future<?> submitInThread(final Runnable runnable) {
-        return beans.getContainer().submitInThread(runnable);
+        return beans.getContainer().submitInWorkerThread(runnable);
     }
     public Beans getBeans() {
         return beans;

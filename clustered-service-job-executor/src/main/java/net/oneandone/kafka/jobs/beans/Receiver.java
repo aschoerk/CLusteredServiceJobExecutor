@@ -8,8 +8,6 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_INTERVAL
 import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG;
 
-import java.lang.ref.PhantomReference;
-import java.lang.ref.Reference;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,9 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
@@ -37,7 +33,6 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
-import net.oneandone.kafka.jobs.tools.JsonMarshaller;
 
 
 /**
@@ -131,11 +126,11 @@ public class Receiver extends StoppableBase {
     protected void handleSingleRecord(final TransportImpl transport) {
         final JobDataImpl jobData = transport.jobData();
         logger.trace("E: {} Received jobData for {} id: {} partition: {} offset: {} state: {} step: {} stepCount: {}",
-                beans.getEngine().getName(), jobData.jobSignature(), jobData.id(),
+                beans.getEngine().getName(), jobData.getSignature(), jobData.getId(),
                 jobData.getPartition(), jobData.getOffset(),
-                jobData.state(), jobData.step(), jobData.stepCount());
+                jobData.getState(), jobData.getStep(), jobData.getStepCount());
 
-        switch (jobData.state()) {
+        switch (jobData.getState()) {
             case RUNNING:
                 if(!beans.getExecutor().executeJob( transport)) {
                     beans.getExecutor().delayJob(transport, "Not scheduled in internal queue");

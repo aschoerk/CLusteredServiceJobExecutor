@@ -15,7 +15,7 @@ import net.oneandone.kafka.jobs.api.State;
 import net.oneandone.kafka.jobs.api.events.JobLifeCycleEvent;
 import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
-import net.oneandone.kafka.jobs.tools.JsonMarshaller;
+import net.oneandone.kafka.jobs.api.tools.JsonMarshaller;
 
 /**
  * @author aschoerk
@@ -54,7 +54,7 @@ public class JobTools extends StoppableBase {
                 separator,
                 (resumeData != null) ? (" " + resumeData) : "");
 
-        String key = (jobData.groupId() != null) ? jobData.groupId() : ((jobData.correlationId() != null) ? jobData.correlationId() : jobData.id());
+        String key = (jobData.getGroupId() != null) ? jobData.getGroupId() : ((jobData.getCorrelationId() != null) ? jobData.getCorrelationId() : jobData.getId());
 
         Pair<String, String> payload = Pair.of(key, toSend);
         return payload;
@@ -62,14 +62,14 @@ public class JobTools extends StoppableBase {
 
     public void prepareJobDataForRunning(JobDataImpl jobData) {
         jobData.setDate(Instant.now(beans.getContainer().getClock()));
-        if(jobData.state() == ERROR) {
+        if(jobData.getState() == ERROR) {
             jobData.setRetries(0);
         }
         changeStateTo(jobData, RUNNING);
     }
 
     void changeStateTo(final JobDataImpl jobData, final State newState) {
-        State previousState = jobData.state();
+        State previousState = jobData.getState();
         jobData.setState(newState);
         beans.getContainer().fire(new JobLifeCycleEvent() {
             @Override

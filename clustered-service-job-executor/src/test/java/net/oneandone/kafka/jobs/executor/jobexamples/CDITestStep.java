@@ -1,9 +1,8 @@
 package net.oneandone.kafka.jobs.executor.jobexamples;
 
-import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,7 +35,7 @@ public class CDITestStep implements Step<TestContext> {
      */
     AtomicBoolean used = new AtomicBoolean(false);
 
-    static AtomicInteger staticThreadCount = new AtomicInteger(0);
+    public static AtomicInteger staticThreadCount = new AtomicInteger(0);
 
     static AtomicLong callCount = new AtomicLong(0L);
 
@@ -55,18 +54,27 @@ public class CDITestStep implements Step<TestContext> {
         collisionsDetected.set(0);
     }
 
+    HashSet<Long> correlationIdsSeen = new HashSet<>();
+
     @Override
     public StepResult handle(final TestContext context) {
         int threads = staticThreadCount.incrementAndGet();
         stepEntered.incrementAndGet();
         final JobDataImpl jobData = StepImpl.getJobData();
         try {
+            if (correlationIdsSeen.contains(context.getCorrelationId())) {
+                logger.error("Multiple Handling of E: {} grouped {} id: {} step: {} retry: {} part:  {} offs: {}",
+                        StepImpl.getBeans().getNodeId(), context.groupId, jobData.getId(), jobData.getStep(),
+                        jobData.getRetries(), jobData.getPartition(), jobData.getOffset());
+            } else {
+                correlationIdsSeen.add(context.getCorrelationId());
+            }
             Thread.sleep(random.nextInt(10));
             ApiTests.logger.trace("Handle was called Threads: {} ", threads);
             if (context.groupId != null) {
                 ApiTests.logger.trace("Starting E: {} grouped {} id: {} step: {} retry: {} part:  {} offs: {} ",
                         StepImpl.getBeans().getNodeId(),
-                        context.groupId, jobData.id(), jobData.step(), jobData.retries(), jobData.getPartition(),
+                        context.groupId, jobData.getId(), jobData.getStep(), jobData.getRetries(), jobData.getPartition(),
                         jobData.getOffset());
             }
             if(!used.compareAndSet(false, true)) {
@@ -93,6 +101,7 @@ public class CDITestStep implements Step<TestContext> {
             logger.error("Exception in CDITestStep", e);
             throw new RuntimeException(e);
         } finally {
+            context.incCorrelationId();
             staticThreadCount.decrementAndGet();
             if(!used.compareAndSet(true, false)) {
                 collisionsDetected.incrementAndGet();
@@ -108,7 +117,7 @@ public class CDITestStep implements Step<TestContext> {
                 ApiTests.logger.trace("Ended E:{}  grouped {} id: {} step {} retry: {} part:  {} offs: {}",
                         StepImpl.getBeans().getNodeId(),
                         context.groupId,
-                        jobData.id(), jobData.step(), jobData.retries(), jobData.getPartition(),
+                        jobData.getId(), jobData.getStep(), jobData.getRetries(), jobData.getPartition(),
                         jobData.getOffset());
             }
             ApiTests.logger.trace("Handle was ready  Threads: {} ", threads);

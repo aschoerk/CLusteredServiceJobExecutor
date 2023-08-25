@@ -3,9 +3,6 @@ package net.oneandone.kafka.jobs.dtos;
 import java.time.Instant;
 import java.util.Objects;
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-
-import net.oneandone.kafka.jobs.api.JobData;
 import net.oneandone.kafka.jobs.api.State;
 
 /**
@@ -53,9 +50,9 @@ public class JobDataState {
     private final long offset;
 
     public JobDataState(JobDataImpl jobData) {
-        this(jobData.id(), jobData.state(),
+        this(jobData.getId(), jobData.getState(),
                 jobData.getPartition(), jobData.getOffset(),
-                jobData.date(), jobData.createdAt(), jobData.step(), jobData.correlationId(), jobData.groupId());
+                jobData.getDate(), jobData.getCreatedAt(), jobData.getStep(), jobData.getCorrelationId(), jobData.getGroupId());
     }
 
     public JobDataState(final String id, final State state, final int partition, final long offset, final Instant date,

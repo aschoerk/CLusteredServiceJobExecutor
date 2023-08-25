@@ -1,11 +1,8 @@
 package net.oneandone.kafka.jobs.executor.support;
 
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,12 +94,12 @@ public class TestBeansFactory extends BeansFactory {
             @Override
             protected void handleSingleRecord(final TransportImpl transport) {
                 JobDataImpl jobData = transport.jobData();
-                testSenderData.stateCounts.get(jobData.state()).incrementAndGet();
+                testSenderData.stateCounts.get(jobData.getState()).incrementAndGet();
                 if (!testSenderData.stateSendingEngines.contains(beans.getEngine().getName())) {
                     testSenderData.stateSendingEngines.add(beans.getEngine().getName());
                     logger.error("new state sending engine: {}",beans.getEngine().getName());
                 }
-                testSenderData.jobStates.put(jobData.id(), beans.getEngine().getName() + "_" + jobData.state());
+                testSenderData.jobStates.put(jobData.getId(), beans.getEngine().getName() + "_" + jobData.getState());
                 super.handleSingleRecord(transport);
             }
         };

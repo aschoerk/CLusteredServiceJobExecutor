@@ -15,7 +15,7 @@ import net.oneandone.kafka.jobs.dtos.JobDataImpl;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
 import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
-import net.oneandone.kafka.jobs.tools.JsonMarshaller;
+import net.oneandone.kafka.jobs.api.tools.JsonMarshaller;
 import net.oneandone.kafka.jobs.tools.ResumeJob;
 import net.oneandone.kafka.jobs.tools.ResumeJobData;
 
@@ -38,9 +38,9 @@ public class EngineImpl extends StoppableBase implements Engine {
 
 
     @Override
-    public <T> void register(final Job<T> job, Class<T> clazz) {
-        JobImpl<T> result = new JobImpl<>(job, clazz, beans);
-        beans.getJobs().put(result.signature(), result);
+    public <T> void register(final Job<T> job) {
+        JobImpl<T> result = new JobImpl<>(job, beans);
+        beans.getJobs().put(result.getSignature(), result);
     }
 
     @Override
@@ -66,7 +66,7 @@ public class EngineImpl extends StoppableBase implements Engine {
     @Override
     public <T> Transport create(final Job<T> job, final String groupId, final T context, String correlationId) {
 
-        JobImpl<T> jobImpl = (JobImpl<T>) beans.getJobs().get(job.signature());
+        JobImpl<T> jobImpl = (JobImpl<T>) beans.getJobs().get(job.getSignature());
 
         if(jobImpl == null) {
             throw new KjeException("expected job first to be registered with executor");
@@ -82,7 +82,7 @@ public class EngineImpl extends StoppableBase implements Engine {
 
         JobDataImpl jobData = new JobDataImpl(jobImpl, (Class<T>) context.getClass(), correlationId, groupId, beans);
 
-        if (jobData.groupId() != null) {
+        if (jobData.getGroupId() != null) {
             jobData.setState(GROUP);
         } else {
             beans.getJobTools().prepareJobDataForRunning(jobData);

@@ -14,26 +14,27 @@ import java.util.stream.Collectors;
  *      <li> will be marshalled using GSon if container marshall or unmarshall returns null</i>
  *      </ul>
  */
-public interface Job<Context> extends JobInfo {
+public interface Job<Context> extends JobInfo<Context> {
+
 
     /**
      * name, used to show generally, what the job should do
      * @return name, used to show generally, what the job should do
      */
     @Override
-    default String name() { return this.getClass().getSimpleName(); }
+    default String getName() { return this.getClass().getSimpleName(); }
 
     /**
      * a string signifying matching jobs, if name might be the same, but the steps where changed.
      * @return a string signifying matching jobs, if name might be the same, but the steps where changed.
      */
     @Override
-    default String signature() {
-        return name() + "|" + version() + "|" + Arrays.stream(steps()).map(Step::name).collect(Collectors.joining("|"));
+    default String getSignature() {
+        return getName() + "|" + getVersion() + "|" + Arrays.stream(steps()).map(Step::name).collect(Collectors.joining("|"));
     }
 
     @Override
-    default int stepNumber() { return steps().length; }
+    default int getStepCount() { return steps().length; }
 
     /**
      * steps to be executed by job
@@ -43,4 +44,6 @@ public interface Job<Context> extends JobInfo {
 
 
     default Supplier<String> getIdCreator() { return () -> UUID.randomUUID().toString(); }
+
+
 }

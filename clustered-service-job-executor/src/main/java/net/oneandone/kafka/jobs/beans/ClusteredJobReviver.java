@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -53,7 +54,7 @@ public class ClusteredJobReviver extends StoppableBase implements ClusterTask {
         this.jobStateReceiverThread = submitLongRunning(() -> {
             initThreadName("State-Receiver");
             consumerConfig.put(GROUP_ID_CONFIG, beans.getNodeId());
-            consumerConfig.put("max.poll.records", beans.getContainer().getConfiguration().getMaxPollJobDataRecords());
+            consumerConfig.put("max.poll.records", beans.getContainer().getConfiguration().getMaxPollAdminJobDataRecords());
             receiveJobState(consumerConfig);
         });
 
@@ -103,7 +104,7 @@ public class ClusteredJobReviver extends StoppableBase implements ClusterTask {
             JobDataState nextOneState = beans.getJobDataStates().get(ids.element());
             if (nextOneState.getState() == GROUP) {
                 TransportImpl nextOne = beans.getReceiver().readJob(beans.getJobDataStates().get(nextOneState.getId()));
-                logger.info("After Init, Starting grouped Job: {} GroupId: {}", nextOne.jobData().id(), nextOne.jobData().groupId());
+                logger.info("After Init, Starting grouped Job: {} GroupId: {}", nextOne.jobData().getId(), nextOne.jobData().getGroupId());
                 beans.getJobTools().prepareJobDataForRunning(nextOne.jobData());
                 beans.getSender().send(nextOne);
             }
@@ -124,12 +125,18 @@ public class ClusteredJobReviver extends StoppableBase implements ClusterTask {
                 jobDataState.getId(), jobDataState.getGroupId());
         beans.getJobDataStates().put(jobDataState.getId(), jobDataState);
         if(jobDataState.getGroupId() != null) {
-            handleGroupJob(transport);
+            try {
+                beans.getContainer().submitShortRunning(() -> {
+                    handleGroupJob(transport);
+                });
+            } catch (RejectedExecutionException e) {
+                handleGroupJob(transport);
+            }
         }
     }
 
     private void handleGroupJob(final TransportImpl transport) {
-        final State state = transport.jobData().state();
+        final State state = transport.jobData().getState();
         if(state == GROUP) {
             handleNewGroupedJob(transport);
         }
@@ -152,60 +159,66 @@ public class ClusteredJobReviver extends StoppableBase implements ClusterTask {
 
     private void handleEndOfGroupedJob(final TransportImpl transport) {
         JobDataImpl jobData = transport.jobData();
-        logger.trace("E: {} done group {} record {}", beans.getEngine().getName(), jobData.groupId(), jobData.id());
-        Queue<String> statesForThisGroup = beans.getStatesByGroup().get(jobData.groupId());
-        if((statesForThisGroup != null) && statesForThisGroup.contains(jobData.id())) {
-            synchronized (beans) {
-                logger.info("removing grouped record {} group: {}",
-                        jobData.id(), jobData.groupId());
-                if(!statesForThisGroup.remove(jobData.id())) {
-                    logger.error("but not foundrecord {} group: {}",
-                            jobData.id(), jobData.groupId());
-                }
-                if(statesForThisGroup.isEmpty()) { // remove collection from common group map
-                    beans.getStatesByGroup().remove(jobData.groupId());
-                } else {
-                    Optional<String> nextOneState = statesForThisGroup.stream()
-                            .min((i, j) -> compareGroupJobs(i,j));
-                    if(stateInitCompleted && nextOneState.isPresent()) {
-                        TransportImpl nextOne = beans.getReceiver().readJob(beans.getJobDataStates().get(nextOneState.get()));
-                        logger.info("After End, Starting grouped Job: {} GroupId: {}", nextOne.jobData().id(), nextOne.jobData().groupId());
-                        beans.getJobTools().prepareJobDataForRunning(nextOne.jobData());
-                        beans.getSender().send(nextOne);
+        logger.trace("E: {} done group {} record {}", beans.getEngine().getName(), jobData.getGroupId(), jobData.getId());
+        Queue<String> statesForThisGroup = beans.getStatesByGroup().get(jobData.getGroupId());
+        if((statesForThisGroup != null)) {
+            if (statesForThisGroup.contains(jobData.getId())) {
+                synchronized (beans) {
+                    logger.info("removing grouped record {} group: {}",
+                            jobData.getId(), jobData.getGroupId());
+                    if(!statesForThisGroup.remove(jobData.getId())) {
+                        logger.error("but not foundrecord {} group: {}",
+                                jobData.getId(), jobData.getGroupId());
+                    }
+                    if(statesForThisGroup.isEmpty()) { // remove collection from common group map
+                        beans.getStatesByGroup().remove(jobData.getGroupId());
+                    }
+                    else {
+                        Optional<String> nextOneState = statesForThisGroup.stream()
+                                .min((i, j) -> compareGroupJobs(i, j));
+                        if(stateInitCompleted && nextOneState.isPresent()) {
+                            TransportImpl nextOne = beans.getReceiver().readJob(beans.getJobDataStates().get(nextOneState.get()));
+                            logger.info("After End, Starting grouped Job: {} GroupId: {}", nextOne.jobData().getId(), nextOne.jobData().getGroupId());
+                            beans.getJobTools().prepareJobDataForRunning(nextOne.jobData());
+                            beans.getSender().send(nextOne);
+                        }
                     }
                 }
+            }  else {
+                logger.error("Ignored End Of Group Job {}, group {} statesForThisGroup: {}",jobData.getId(),
+                        jobData.getGroupId(),statesForThisGroup);
             }
         } else {
-            logger.error("Ignored End Of Group Job {}, group {} statesForThisGroup: {}",jobData.id(),
-                    jobData.groupId(),statesForThisGroup);
+            logger.error("Ignored End Of Group Job {}, group {} statesForThisGroup: {}",jobData.getId(),
+                    jobData.getGroupId(),statesForThisGroup);
         }
     }
 
     private void handleNewGroupedJob(final TransportImpl transport) {
         JobDataImpl jobData = transport.jobData();
-        logger.trace("Adding group job {} groupId: {}", jobData.id(), jobData.groupId());
-        Queue<String> statesForThisGroup = beans.getStatesByGroup().get(jobData.groupId());
+        logger.trace("Adding group job {} groupId: {}", jobData.getId(), jobData.getGroupId());
+        Queue<String> statesForThisGroup = beans.getStatesByGroup().get(jobData.getGroupId());
         synchronized (beans) {
-            statesForThisGroup = beans.getStatesByGroup().get(jobData.groupId());
+            statesForThisGroup = beans.getStatesByGroup().get(jobData.getGroupId());
             if(statesForThisGroup == null) {
                 statesForThisGroup = new ConcurrentLinkedQueue<>();
-                statesForThisGroup.add(jobData.id());
-                beans.getStatesByGroup().put(jobData.groupId(), statesForThisGroup);
+                statesForThisGroup.add(jobData.getId());
+                beans.getStatesByGroup().put(jobData.getGroupId(), statesForThisGroup);
             }
             else {
-                statesForThisGroup.add(jobData.id());
+                statesForThisGroup.add(jobData.getId());
             }
         }
 
         if(stateInitCompleted && statesForThisGroup.size() == 1) {
-            if (!statesForThisGroup.element().equals(jobData.id())) {
-                logger.error("Logical error when starting group job {} groupId: {}", jobData.id(), jobData.groupId());
+            if (!statesForThisGroup.element().equals(jobData.getId())) {
+                logger.error("Logical error when starting group job {} groupId: {}", jobData.getId(), jobData.getGroupId());
             }
             beans.getJobTools().prepareJobDataForRunning(transport.jobData());
-            logger.info("Starting grouped: {} GroupId: {}", jobData.id(), jobData.groupId());
+            logger.info("Starting grouped: {} GroupId: {}", jobData.getId(), jobData.getGroupId());
             beans.getSender().send(transport);
         } else {
-            logger.info("Enqueued grouped: {} GroupId: {} stateInit {}", jobData.id(), jobData.groupId(), stateInitCompleted);
+            logger.info("Enqueued grouped: {} GroupId: {} stateInit {}", jobData.getId(), jobData.getGroupId(), stateInitCompleted);
         }
     }
 
@@ -264,7 +277,7 @@ public class ClusteredJobReviver extends StoppableBase implements ClusterTask {
                 jobs.forEach(j -> {
                     logger.info("E: {} Reviving: {}", beans.getEngine().getName(), j.jobData());
                     beans.getSender().send(j);
-                    beans.getJobDataStates().remove(j.jobData().id());
+                    beans.getJobDataStates().remove(j.jobData().getId());
                     reviving[0]++;
                 });
             }

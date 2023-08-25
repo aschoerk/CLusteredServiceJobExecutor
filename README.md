@@ -3,7 +3,10 @@ Execute Jobs in a failsafe manner using multiple cluster-nodes/pods synchronized
 
 Development steps:
 
+* executor get RemoteJobs from jobs-service
+* 
 
+* multithreaded Rev[java](clustered-service-job-executor%2Fsrc%2Fmain%2Fjava)iver parallel Group/CorrelationId handling
 * get rid of State-Record
 * handle resume always like group via ClusteredTask 
 
