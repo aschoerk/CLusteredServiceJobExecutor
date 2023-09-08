@@ -15,6 +15,10 @@ public class RemarkDto implements Remark {
     private String remark;
     private Instant instant;
 
+    public RemarkDto() {
+
+    }
+
     public RemarkDto(final Instant instant, final String id, final String remark) {
         this.setInstant(instant);
         this.setId(id);

@@ -52,9 +52,4 @@ public class JobImpl<T> implements Job<T> {
         return steps;
     }
 
-    @Override
-    public Supplier<String> getIdCreator() {
-        return null;
-    }
-
 }

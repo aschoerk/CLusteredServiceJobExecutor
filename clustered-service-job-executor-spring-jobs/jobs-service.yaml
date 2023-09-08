@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: clustered-service-jobs-service
+spec:
+  selector:
+    app: clustered-service-jobs
+  ports:
+    - name: jobs
+      protocol: TCP
+      port: 8081  # The port exposed by the service
+      targetPort: 8081  # The port the pod listens on
+

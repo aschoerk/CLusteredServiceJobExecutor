@@ -31,6 +31,7 @@
     <modules>
         <module>clustered-service-job-executor-api</module>
         <module>clustered-service-job-executor</module>
+        <module>clustered-service-job-executor-lib</module>
         <module>clustered-service-job-executor-spring</module>
         <module>clustered-service-job-executor-spring-jobs</module>
     </modules>

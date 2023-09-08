@@ -3,9 +3,12 @@ Execute Jobs in a failsafe manner using multiple cluster-nodes/pods synchronized
 
 Development steps:
 
-* executor get RemoteJobs from jobs-service
+* make kafka-package json. use json-frame containing jobdata, context, resumedata but avoid masking of characters in context,
+and resumedata-strings so ObjectMapper and gson may only unmarshall jobdata and transport context and resumedata as strings
+* UI to Jobs and states.
 * 
-
+* executor get RemoteJobs from jobs-service 
+* 
 * multithreaded Rev[java](clustered-service-job-executor%2Fsrc%2Fmain%2Fjava)iver parallel Group/CorrelationId handling
 * get rid of State-Record
 * handle resume always like group via ClusteredTask 

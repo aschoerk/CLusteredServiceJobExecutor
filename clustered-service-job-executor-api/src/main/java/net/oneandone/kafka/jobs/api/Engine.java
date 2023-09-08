@@ -19,6 +19,10 @@ public interface Engine {
      */
     void register(RemoteExecutor remoteExecutor);
 
+    <T> Transport create(String jobName, String context);
+
+    <T> Transport create(String jobName, String context, String groupId, String correlationId);
+
     /**
      * creates a job instance to be executed
      *

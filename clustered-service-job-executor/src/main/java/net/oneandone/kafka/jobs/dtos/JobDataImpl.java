@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
 
+import net.oneandone.kafka.jobs.api.JobInfo;
 import net.oneandone.kafka.jobs.api.State;
 import net.oneandone.kafka.jobs.api.dto.JobDataDto;
 import net.oneandone.kafka.jobs.beans.Beans;
@@ -14,7 +15,6 @@ import net.oneandone.kafka.jobs.implementations.JobImpl;
  */
 public class JobDataImpl extends JobDataDto {
 
-
     private transient int partition = -1;
 
     private transient long offset = -1;
@@ -24,6 +24,15 @@ public class JobDataImpl extends JobDataDto {
                 correlationId, State.RUNNING, job.getSignature(), 0, 0, beans);
 
         this.setContextClass(contextClass.getCanonicalName());
+        this.setCreatedAt(beans.getContainer().getClock().instant());
+        this.setGroupId(groupId);
+    }
+
+    public JobDataImpl(JobInfo job, String correlationId, String groupId, Beans beans) {
+        this(beans.getEngine().createId(),
+                correlationId, State.RUNNING, job.getSignature(), 0, 0, beans);
+
+        this.setContextClass(job.getContextClass());
         this.setCreatedAt(beans.getContainer().getClock().instant());
         this.setGroupId(groupId);
     }
@@ -40,7 +49,7 @@ public class JobDataImpl extends JobDataDto {
     }
 
     private static <T> String createJobDataId(final JobImpl<T> job, final Beans beans) {
-        return (job.getIdCreator() != null) ? job.getIdCreator().get() : beans.getEngine().createId();
+        return beans.getEngine().createId();
     }
 
     public int getPartition() {
@@ -64,7 +73,7 @@ public class JobDataImpl extends JobDataDto {
         if(retries == null) {
             setRetries(0);
         }
-        return getRetries();
+        return retries;
     }
 
 

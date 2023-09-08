@@ -1,5 +1,9 @@
 package net.oneandone.clusteredservicejobexecutor.spring;
 
+import java.io.IOException;
+import java.io.StringBufferInputStream;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -8,10 +12,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import net.oneandone.kafka.jobs.api.Configuration;
 import net.oneandone.kafka.jobs.api.Container;
@@ -24,6 +31,10 @@ import reactor.core.publisher.Mono;
 
 @Component
 public class SpringContainer implements Container {
+
+    @Autowired
+    ObjectMapper objectMapper;
+
     private final WebClient.Builder webClientBuilder;
     Logger logger = LoggerFactory.getLogger(SpringContainer.class);
     static AtomicInteger nodeNum = new AtomicInteger(0);
@@ -109,12 +120,17 @@ public class SpringContainer implements Container {
 
     @Override
     public RemoteExecutor[] getRemoteExecutors() {
+        final Integer[] errors = new Integer[] {0};
         final String jobsRemoteExecutors = System.getenv("JOBS_REMOTE_EXECUTORS");
         String[] remoteExecutorUrls = jobsRemoteExecutors.split(";");
         ArrayList<RemoteExecutor> executors = new ArrayList<>();
         for (String r: remoteExecutorUrls) {
             WebClient webClient = webClientBuilder.baseUrl(r).build();
-            Mono<JobInfoDto[]> res = webClient.get().uri("api/jobs").accept(MediaType.APPLICATION_JSON).retrieve().bodyToMono(JobInfoDto[].class);
+            Mono<JobInfoDto[]> res = webClient.get()
+                    .uri("api/jobs")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .bodyToMono(JobInfoDto[].class);
 
             res.subscribe(jobInfos -> {
                 RemoteExecutor remoteExecutor = new RemoteExecutor() {
@@ -125,8 +141,11 @@ public class SpringContainer implements Container {
 
                     @Override
                     public StepResult handle(final TransportDto transport) {
+                        String body = marshal(transport);
                         Mono<StepResult> tmp = webClient.post()
-                                .uri("api/jobs/" + transport.jobData().getSignature()).body(transport, TransportDto.class)
+                                .uri("api/jobs/" + transport.jobData().getSignature())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(body)
                                 .accept(MediaType.APPLICATION_JSON)
                                 .retrieve()
                                 .bodyToMono(StepResult.class);
@@ -159,12 +178,13 @@ public class SpringContainer implements Container {
                 executors.add(remoteExecutor);
             }, error -> {
                 logger.error("Could not read jobInfos", error);
+                errors[0]++;
             }, () -> {
                logger.info("returned after querying infos");
             });
 
         }
-        while (executors.size() < remoteExecutorUrls.length) {
+        while (executors.size() < remoteExecutorUrls.length && errors[0] == 0) {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
@@ -173,6 +193,25 @@ public class SpringContainer implements Container {
             }
         }
         return executors.toArray(new RemoteExecutor[executors.size()]);
+    }
 
+    @Override
+    public <T> String marshal(final T context) {
+        StringWriter sw = new StringWriter();
+        try {
+            objectMapper.writeValue(sw, context);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return sw.toString();
+    }
+
+    @Override
+    public <T> T unmarshal(final String value, final Class<T> clazz) {
+        try {
+            return objectMapper.readValue(new StringReader(value), clazz);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

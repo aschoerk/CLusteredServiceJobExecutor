@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import net.oneandone.kafka.jobs.api.Engine;
 import net.oneandone.kafka.jobs.api.Job;
+import net.oneandone.kafka.jobs.api.JobInfo;
 import net.oneandone.kafka.jobs.api.KjeException;
 import net.oneandone.kafka.jobs.api.RemoteExecutor;
 import net.oneandone.kafka.jobs.api.Transport;
@@ -40,12 +41,26 @@ public class EngineImpl extends StoppableBase implements Engine {
     @Override
     public <T> void register(final Job<T> job) {
         JobImpl<T> result = new JobImpl<>(job, beans);
-        beans.getJobs().put(result.getSignature(), result);
+        beans.getInternalJobs().put(result.getSignature(), result);
     }
 
     @Override
     public void register(final RemoteExecutor remoteExecutor) {
         beans.getRemoteExecutors().addExecutor(remoteExecutor);
+    }
+
+    @Override
+    public <T> Transport create(final String jobName, final String context, String groupId, String correlationId) {
+        JobInfo jobInfo = beans.getRemoteExecutors().findRemoteJob(jobName);
+        if (jobInfo == null) {
+            throw new KjeException("Job " + jobName + " not found");
+        }
+        return createJob(jobInfo, context, groupId, correlationId);
+    }
+
+    @Override
+    public <T> Transport create(final String jobName, final String context) {
+        return create(jobName, context, null, null);
     }
 
     @Override
@@ -63,15 +78,7 @@ public class EngineImpl extends StoppableBase implements Engine {
         return create(job, null, context, correlationId);
     }
 
-    @Override
-    public <T> Transport create(final Job<T> job, final String groupId, final T context, String correlationId) {
-
-        JobImpl<T> jobImpl = (JobImpl<T>) beans.getJobs().get(job.getSignature());
-
-        if(jobImpl == null) {
-            throw new KjeException("expected job first to be registered with executor");
-        }
-
+    private Transport createJob(final JobInfo jobInfo, final String context, final String groupId, final String correlationId) {
         if(correlationId != null) {
             JobDataState state = beans.getJobDataCorrelationIds().get(correlationId);
             if(state != null) {
@@ -80,7 +87,7 @@ public class EngineImpl extends StoppableBase implements Engine {
             }
         }
 
-        JobDataImpl jobData = new JobDataImpl(jobImpl, (Class<T>) context.getClass(), correlationId, groupId, beans);
+        JobDataImpl jobData = new JobDataImpl(jobInfo, correlationId, groupId, beans);
 
         if (jobData.getGroupId() != null) {
             jobData.setState(GROUP);
@@ -88,11 +95,30 @@ public class EngineImpl extends StoppableBase implements Engine {
             beans.getJobTools().prepareJobDataForRunning(jobData);
         }
 
-        TransportImpl contextImpl = new TransportImpl(jobData, context, context.getClass(), beans);
+        TransportImpl contextImpl = new TransportImpl(jobData, context, beans);
 
         beans.getSender().send(contextImpl);
 
         return contextImpl;
+    }
+
+
+    @Override
+    public <T> Transport create(final Job<T> job, final String groupId, final T context, String correlationId) {
+
+        JobImpl<T> jobImpl = (JobImpl<T>) beans.getInternalJobs().get(job.getSignature());
+
+        if(jobImpl == null) {
+            throw new KjeException("expected job first to be registered with executor");
+        }
+
+        String contextString = beans.getContainer().marshal(context);
+        if (contextString == null) {
+            contextString = JsonMarshaller.gson.toJson(context);
+        }
+
+        return createJob(job, contextString, groupId, correlationId);
+
     }
 
     @Override

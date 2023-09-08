@@ -20,7 +20,12 @@
 		<dependency>
 			<groupId>net.oneandone.clustered-service-job-executor</groupId>
 			<artifactId>clustered-service-job-executor-api</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>net.oneandone.clustered-service-job-executor</groupId>
+			<artifactId>clustered-service-job-executor-lib</artifactId>
+			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

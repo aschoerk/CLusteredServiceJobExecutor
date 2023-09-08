@@ -4,8 +4,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -18,7 +16,6 @@ import net.oneandone.kafka.clusteredjobs.api.TaskDefaults;
 import net.oneandone.kafka.clusteredjobs.api.TaskDefinition;
 import net.oneandone.kafka.jobs.api.Container;
 import net.oneandone.kafka.jobs.dtos.JobDataState;
-import net.oneandone.kafka.jobs.dtos.TransportImpl;
 import net.oneandone.kafka.jobs.implementations.JobImpl;
 
 /**
@@ -135,7 +132,7 @@ public class Beans extends StoppableBase {
      *
      * @return the registered jobs by signature
      */
-    public Map<String, JobImpl<?>> getJobs() {
+    public Map<String, JobImpl<?>> getInternalJobs() {
         return jobs;
     }
 

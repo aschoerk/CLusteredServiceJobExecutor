@@ -10,13 +10,18 @@ import java.time.temporal.TemporalAmount;
  * @author aschoerk
  */
 public class StepResult {
-    private final StepResultEnum stepResultEnum;
+    private StepResultEnum stepResultEnum = StepResultEnum.ERROR;
 
     private int stepIncrement = 1;
 
     private Instant continueNotBefore = Instant.now();
 
     private String error = "";
+
+    // necessary for json deserialization
+    public StepResult() {
+
+    }
 
     public StepResult(final StepResultEnum stepResultEnum) {
         this.stepResultEnum = stepResultEnum;

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import net.oneandone.kafka.jobs.api.JobInfo;
 import net.oneandone.kafka.jobs.api.KjeException;
@@ -25,8 +26,15 @@ public class RemoteExecutors extends StoppableBase implements RemoteExecutor {
     public RemoteExecutors(final Beans beans) {
         super(beans);
         beans.getContainer().submitLongRunning(() -> {
-            while (true) {
-                RemoteExecutor[] remoteExecutors = beans.getContainer().getRemoteExecutors();
+            while (!this.doShutDown()) {
+                RemoteExecutor[] remoteExecutors = new RemoteExecutor[0];
+                try {
+                    remoteExecutors = beans.getContainer().getRemoteExecutors();
+                }
+                catch (Exception e) {
+                    logger.error("RemoteExecutors not got", e);
+                }
+                this.setRunning();
                 synchronized (this) {
                     executors.clear();
                     for (RemoteExecutor r : remoteExecutors) {
@@ -86,5 +94,23 @@ public class RemoteExecutors extends StoppableBase implements RemoteExecutor {
             }
             executors.get(signature).add(remoteExecutor);
         });
+    }
+
+    public JobInfo findRemoteJob(String jobName) {
+        return executors.values().stream()
+                .distinct()
+                .map(e -> e
+                        .stream()
+                        .map(re ->
+                                Arrays.stream(re.supportedJobs())
+                                        .filter(j -> j.getName().equals(jobName))
+                                        .collect(Collectors.toList())
+                        )
+                        .flatMap(List::stream)
+                        .collect(Collectors.toList())
+
+                )
+                .flatMap(List::stream)
+                .max((j1,j2) -> j1.getVersion().compareTo(j2.getVersion())).orElse(null);
     }
 }

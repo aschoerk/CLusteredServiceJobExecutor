@@ -43,7 +43,5 @@ public interface Job<Context> extends JobInfo<Context> {
     Step<Context>[] steps();
 
 
-    default Supplier<String> getIdCreator() { return () -> UUID.randomUUID().toString(); }
-
 
 }

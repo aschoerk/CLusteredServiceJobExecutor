@@ -1,15 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: clustered-service-job-executor-service
+  name: job-executor-service
 spec:
   selector:
     app: clustered-service-job-executor
-  type: NodePort
+  type: ClusterIP
   ports:
     - protocol: TCP
-      name: admin
-      nodePort: 30082
-      port: 8080  # The port exposed by the service
+      name: exec
+      port: 8082  # The port exposed by the service
       targetPort: 8080  # The port the pod listens on
 

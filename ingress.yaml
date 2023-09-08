@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jobs-ingress
+spec:
+  rules:
+    - host: jobs-executor.minikube.aschoerk.de
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: job-executor-service
+                port:
+                  number: 8082
+    - host: jobs.minikube.aschoerk.de
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: clustered-service-jobs-service
+                port:
+                  number: 8081
+    - host: kafka-ui.minikube.aschoerk.de
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kafka-ui-service
+                port:
+                  number: 8080

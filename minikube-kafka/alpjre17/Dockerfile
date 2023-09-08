@@ -4,6 +4,7 @@ RUN apk add --no-cache iputils
 RUN apk add --no-cache net-tools
 RUN apk add --no-cache bash
 RUN apk add --no-cache curl
+RUN apk add --no-cache busybox-extras
 WORKDIR /opt
 RUN wget https://www-eu.apache.org/dist/kafka/3.5.1/kafka_2.13-3.5.1.tgz
 RUN tar -xvzf *.tgz

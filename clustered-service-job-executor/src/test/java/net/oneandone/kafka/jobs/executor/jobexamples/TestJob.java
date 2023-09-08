@@ -40,10 +40,6 @@ public class TestJob implements Job<TestContext> {
         };
     }
 
-    @Override
-    public Supplier<String> getIdCreator() {
-        return () -> engine.getBeans().getNodeId() + "_" + ids.incrementAndGet();
-    }
 
     @Override
     public String getContextClass() {

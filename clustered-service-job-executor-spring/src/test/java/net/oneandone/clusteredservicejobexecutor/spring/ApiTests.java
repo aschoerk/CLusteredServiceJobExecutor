@@ -143,7 +143,7 @@ class ApiTests {
         Beans beans = Mockito.mock(Beans.class);
         HashMap<String, Job> tmpMap = new HashMap<>();
         tmpMap.put(job.getSignature(), new JobImpl(job, beans));
-        Mockito.doReturn(tmpMap).when(beans).getJobs();
+        Mockito.doReturn(tmpMap).when(beans).getInternalJobs();
         Mockito.doReturn("RemoteNode" + Thread.currentThread().getName()).when(beans).getNodeId();
         return new LocalRemoteExecutor(beans);
     }

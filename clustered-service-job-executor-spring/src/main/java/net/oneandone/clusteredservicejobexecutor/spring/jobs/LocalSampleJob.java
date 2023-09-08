@@ -7,13 +7,13 @@ import net.oneandone.kafka.jobs.api.Job;
 import net.oneandone.kafka.jobs.api.Step;
 
 @Component
-public class SampleJob implements Job<String> {
+public class LocalSampleJob implements Job<String> {
 
     @Autowired
-    SampleStep sampleStep;
+    LocalSampleStep sampleStep;
 
     @Autowired
-    SampleStep2 sampleStep2;
+    LocalSampleStep2 sampleStep2;
 
     @Override
     public Step<String>[] steps() {

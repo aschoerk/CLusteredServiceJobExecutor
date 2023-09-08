@@ -27,6 +27,8 @@ public class TestBeansFactory extends BeansFactory {
 
     TestSenderData testSenderData = new TestSenderData();
 
+
+
     @Override
     public JobsSender createSender(final Beans beans) {
         testSender = new TestJobsSender(beans, testSenderData);

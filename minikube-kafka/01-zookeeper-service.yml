@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: zookeeper-service
+  name: zookeeper-service
+  namespace: minikube-kafka
+spec:
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 2181
+    targetPort: 2181
+  selector:
+    app: zookeeper
+

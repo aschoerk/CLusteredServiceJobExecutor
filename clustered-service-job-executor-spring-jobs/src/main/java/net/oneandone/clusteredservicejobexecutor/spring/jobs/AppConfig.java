@@ -9,7 +9,11 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import net.oneandone.clusteredservicejobexecutor.json.ObjectMapperFactory;
 import net.oneandone.kafka.jobs.api.Engine;
 import net.oneandone.kafka.jobs.api.Job;
 import net.oneandone.kafka.jobs.api.Providers;
@@ -23,6 +27,13 @@ public class AppConfig implements ApplicationContextAware {
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
+    }
+
+    @Bean
+    @Primary
+    public ObjectMapper objectMapper() {
+        // Configure and return your custom ObjectMapper
+        return ObjectMapperFactory.create();
     }
 
     @Bean

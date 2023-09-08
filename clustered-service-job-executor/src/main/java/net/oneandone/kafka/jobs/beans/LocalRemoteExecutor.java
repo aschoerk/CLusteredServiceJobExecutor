@@ -22,7 +22,7 @@ public class LocalRemoteExecutor implements RemoteExecutor {
 
     @Override
     public JobInfo[] supportedJobs() {
-        return beans.getJobs().values().toArray(new JobInfo[0]);
+        return beans.getInternalJobs().values().toArray(new JobInfo[0]);
     }
 
     @Override
@@ -30,7 +30,7 @@ public class LocalRemoteExecutor implements RemoteExecutor {
         try {
             final JobData jobData = transport.jobData();
             String signature = jobData.getSignature();
-            JobImpl job = beans.getJobs().get(signature);
+            JobImpl job = beans.getInternalJobs().get(signature);
             TransportImpl transportImpl = null;
             if(transport instanceof TransportImpl) {
                 transportImpl = (TransportImpl) transport;

@@ -14,8 +14,8 @@ public class JobDataDto implements JobData {
     private String jobSignature = null;
     private State state = null;
     private Instant createdAt = null;
-    private Remark[] errors = new Remark[0];
-    private Remark[] comments = new Remark[0];
+    private RemarkDto[] errors = new RemarkDto[0];
+    private RemarkDto[] comments = new RemarkDto[0];
     private int step = -1;
     private int stepCount = 0;
     private String contextClass = null;
@@ -63,19 +63,19 @@ public class JobDataDto implements JobData {
         this.createdAt = createdAt;
     }
 
-    public Remark[] getErrors() {
+    public RemarkDto[] getErrors() {
         return errors;
     }
 
-    public void setErrors(Remark[] errors) {
+    public void setErrors(RemarkDto[] errors) {
         this.errors = errors;
     }
 
-    public Remark[] getComments() {
+    public RemarkDto[] getComments() {
         return comments;
     }
 
-    public void setComments(Remark[] comments) {
+    public void setComments(RemarkDto[] comments) {
         this.comments = comments;
     }
 

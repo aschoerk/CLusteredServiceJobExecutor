@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.http.HttpStatus;
@@ -33,7 +34,8 @@ public class JobsRestController implements ApplicationContextAware {
 
     Map<String, Job> jobMap = new HashMap<>();
 
-    ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    ObjectMapper objectMapper;
 
 
     @Override
@@ -61,7 +63,7 @@ public class JobsRestController implements ApplicationContextAware {
                 .stream()
                 .map(e -> new JobInfoDto(e.getValue())).collect(Collectors.toList()).toArray(new JobInfoDto[jobs.size()]);
         jobs.entrySet().stream().forEach(e -> jobMap.put(e.getValue().getSignature(), e.getValue()));
-        return ResponseEntity.ok(JsonMarshaller.gson.toJson(result));
+     return ResponseEntity.ok(JsonMarshaller.gson.toJson(result));
     }
 
     @PostMapping("/jobs/{signature}")

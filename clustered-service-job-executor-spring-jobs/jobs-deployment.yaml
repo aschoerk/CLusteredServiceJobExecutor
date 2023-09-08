@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clustered-service-jobs-deployment
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: clustered-service-jobs
+  template:
+    metadata:
+      labels:
+        app: clustered-service-jobs
+    spec:
+      containers:
+      - image: clustered-service-jobs
+        imagePullPolicy: IfNotPresent
+        name: clustered-service-jobs
+        ports:
+          - containerPort: 8081
+          - containerPort: 5006
+        env:
+          - name: KAFKA_BOOTSTRAP_SERVERS
+            value: "kafka-service.minikube-kafka.svc.cluster.local:9092"
+
